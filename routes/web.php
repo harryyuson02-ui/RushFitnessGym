@@ -1,28 +1,30 @@
+
 <?php
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LoginController;
 
-// Public Welcome & Authentication Routes
 Route::get('/', [LoginController::class, 'showLoginForm'])->name('login');
-Route::post('/login', [LoginController::class, 'login'])->name('login.submit');
-Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
-// Authenticated Role Dashboards
-Route::middleware(['auth'])->group(function () {
+Route::post('/login', [LoginController::class, 'login'])
+    ->name('login.submit');
 
-    // 1. Owner Dashboard Group
-    Route::prefix('gym')->name('gym.')->group(function () {
-        Route::view('/dashboard', 'gym.dashboard')->name('dashboard');
-    });
+Route::get('/register', function () {
+    return view('register');
+})->name('register');
 
-    // 2. Staff & Coach Dashboard Group
-    Route::prefix('staff')->name('staff.')->group(function () {
-        Route::view('/dashboard', 'staff.dashboard')->name('dashboard');
-    });
+Route::post('/register', function () {
+    return redirect()->route('login');
+})->name('register.store');
 
-    // 3. Member Dashboard Group
-    Route::prefix('member')->name('member.')->group(function () {
-        Route::view('/dashboard', 'member.dashboard')->name('dashboard');
-    });
-});
+// Member Dashboard
+Route::view('/member/dashboard', 'member.dashboard')
+    ->name('member.dashboard');
+
+// Coach Dashboard
+Route::view('/coach/dashboard', 'coach.dashboard')
+    ->name('coach.dashboard');
+
+// Staff / Owner Shared Admin Dashboard
+Route::view('/admin/dashboard', 'admin.dashboard')
+    ->name('admin.dashboard');
