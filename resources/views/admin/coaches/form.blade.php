@@ -1,0 +1,9 @@
+<div class="grid gap-5 sm:grid-cols-2">
+    <label class="grid gap-2 text-sm font-bold">Full name<input class="min-h-12 rounded-xl border border-zinc-300 px-4 font-normal" name="name" value="{{ old('name', $coach?->name) }}" required><x-input-error :messages="$errors->get('name')" /></label>
+    <label class="grid gap-2 text-sm font-bold">Mobile number<input class="min-h-12 rounded-xl border border-zinc-300 px-4 font-normal" name="phone" value="{{ old('phone', $coach?->phone) }}" required><x-input-error :messages="$errors->get('phone')" /></label>
+    <label class="grid gap-2 text-sm font-bold">Email<input class="min-h-12 rounded-xl border border-zinc-300 px-4 font-normal" type="email" name="email" value="{{ old('email', $coach?->email) }}"></label>
+    <label class="grid gap-2 text-sm font-bold">Specialty<input class="min-h-12 rounded-xl border border-zinc-300 px-4 font-normal" name="specialty" value="{{ old('specialty', $coach?->specialty) }}" required><x-input-error :messages="$errors->get('specialty')" /></label>
+    <label class="grid gap-2 text-sm font-bold sm:col-span-2">Schedule<textarea class="min-h-24 rounded-xl border border-zinc-300 p-4 font-normal" name="schedule" required>{{ old('schedule', $coach?->schedule) }}</textarea><x-input-error :messages="$errors->get('schedule')" /></label>
+    <label class="flex min-h-12 items-center gap-3 rounded-xl bg-zinc-100 p-4 text-sm font-bold sm:col-span-2"><input type="hidden" name="is_available" value="0"><input class="size-5 accent-lime-500" type="checkbox" name="is_available" value="1" @checked(old('is_available', $coach?->is_available ?? true))> Available for new assignments</label>
+</div>
+<div class="mt-7 flex justify-end gap-3"><a href="{{ route('admin.coaches.index') }}" class="inline-flex min-h-12 items-center px-5 font-bold text-zinc-600">Cancel</a><button class="min-h-12 rounded-xl bg-lime-400 px-6 font-extrabold">Save coach</button></div>

@@ -1,39 +1,69 @@
-
 @extends('layouts.layout')
 
 @section('title', 'Member Dashboard')
 
-@section('header', 'Member Dashboard')
+@section('sidebar')
+    @include('member.sidebar')
+@endsection
 
 @section('content')
+<div class="page-header">
+    <h1>Member Dashboard</h1>
+    <p>Welcome to your Rush Fitness Gym member dashboard.</p>
+</div>
 
-    <div class="welcome-card">
-
-        <h2>Welcome, Member!</h2>
-
-        <p>
-            Manage your gym activities and membership.
-        </p>
-
+<!-- 4 Statistics Cards Row -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <h3>Membership Status</h3>
+        <p style="color: #24f404;">Active</p>
     </div>
 
-    <div class="dashboard-cards">
-
-        <div class="dashboard-card">
-            <h3>Membership Status</h3>
-            <p>Active</p>
-        </div>
-
-        <div class="dashboard-card">
-            <h3>Check-ins</h3>
-            <p>0</p>
-        </div>
-
-        <div class="dashboard-card">
-            <h3>QR Code</h3>
-            <p>Coming Soon</p>
-        </div>
-
+    <div class="stat-card">
+        <h3>Total Visits</h3>
+        <p>18</p>
     </div>
 
+    <div class="stat-card">
+        <h3>Days Remaining</h3>
+        <p>28</p>
+    </div>
+
+    <div class="stat-card">
+        <h3>Workouts Completed</h3>
+        <p>12</p>
+    </div>
+</div>
+
+<!-- Recent Activity Section -->
+<div class="content-card">
+    <h2>Recent Activity</h2>
+
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Activity</th>
+                <th>Location / Note</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Gym Check-in</td>
+                <td>Main Entrance Terminal</td>
+                <td>September 26, 2026</td>
+            </tr>
+            <tr>
+                <td>Gym Check-in</td>
+                <td>Main Entrance Terminal</td>
+                <td>September 24, 2026</td>
+            </tr>
+            <tr>
+                <td>Personal Training</td>
+                <td>Assigned with Coach Mark</td>
+                <td>September 22, 2026</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
 @endsection

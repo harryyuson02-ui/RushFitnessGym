@@ -1,32 +1,43 @@
 <?php
-    Namespace App\Http\Controllers;
 
-    use Illuminate\Http\Request;
+namespace App\Http\Controllers;
+
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\View\View;
 
 class LoginController extends Controller
-    {
-    public function showLoginForm()
+{
+    public function showLoginForm(): View
     {
         return view('welcome');
     }
 
-     
-public function login(Request $request)
-{
-    $role = $request->input('role');
+    public function login(Request $request): RedirectResponse
+    {
+        $credentials = $request->validate([
+            'email' => ['required', 'email'],
+            'password' => ['required', 'string'],
+        ]);
 
-    // Staff and Owner use the same dashboard
-    if ($role === 'owner' || $role === 'staff' || $role === 'coach') {
+        if (! Auth::attempt([...$credentials, 'role' => 'admin'], $request->boolean('remember'))) {
+            return back()->withErrors([
+                'email' => 'These credentials do not match an authorized administrator.',
+            ])->onlyInput('email');
+        }
 
-        return redirect()->route('admin.dashboard');
+        $request->session()->regenerate();
 
+        return redirect()->intended(route('admin.dashboard'));
     }
 
-    // Member Dashboard
-    return redirect()->route('member.dashboard');
-}
-        public function logout(Request $request)
+    public function logout(Request $request): RedirectResponse
     {
-            return redirect()->route('login');
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('login');
     }
 }

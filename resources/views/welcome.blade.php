@@ -9,116 +9,56 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 
-    @vite('resources/css/style.css')
+    @vite('resources/css/app.css')
 </head>
-<body>
-
-<main class="split">
-
-    {{-- Left: the pitch --}}
-    <section class="stage">
-        <p class="mark">Rush Fitness Gym </p>
-
-        <h1>Push yourself.<br>Stay strong.<br>Stay fit.</h1>
-
-        <p class="lede">
-            Open 7am to 9pm. Free weights, and machines six days a week.
-        </p>
-
-        <dl class="stats">
-            <div>
-                <dt>Coaches on the floor</dt>
-                <dd>3</dd>
+<body class="min-h-screen bg-zinc-950 text-white antialiased">
+    <main class="grid min-h-screen lg:grid-cols-[1.1fr_.9fr]">
+        <section class="relative hidden overflow-hidden p-12 lg:flex lg:flex-col lg:justify-between">
+            <div class="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(163,230,53,.18),transparent_38%),linear-gradient(135deg,#09090b,#27272a)]"></div>
+            <div class="relative">
+                <p class="font-['Anton'] text-5xl tracking-[0.18em] text-lime-400">RUSH</p>
+                <p class="text-xs font-bold tracking-[0.35em] text-zinc-400">FITNESS GYM</p>
             </div>
-            <div>
-                <dt>Classes each week</dt>
-                <dd>35+</dd>
+            <div class="relative max-w-lg">
+                <p class="mb-5 text-sm font-bold uppercase tracking-[0.2em] text-lime-400">Admin operations</p>
+                <h1 class="text-5xl font-bold leading-tight tracking-tight">Every member.<br>One clear workflow.</h1>
+                <p class="mt-5 max-w-md leading-7 text-zinc-400">Onboard clients, assign coaches, track subscriptions, and issue QR access keys from one secure desk.</p>
             </div>
-            <div>
-                <dt>Members training here</dt>
-                <dd>200+</dd>
-            </div>
-        </dl>
+        </section>
 
-        <a href="https://rushfitnessgymtagumcity.com/" class="ghost-link">
-        Browse For More Information
-        </a>    </section>
-
-    {{-- Right: sign in --}}
-    <section class="gate">
-        <div class="gate-inner">
-            <h2>Sign in</h2>
-            <p class="gate-sub">Choose how you use the gym.</p>
-
-            <div class="roles" role="tablist" aria-label="Account type">
-                <button type="button" class="role is-active" data-role="member" role="tab" aria-selected="true">
-                    Member
-                </button>
-                <button type="button" class="role" data-role="staff" role="tab" aria-selected="false">
-                    Coach or staff
-                </button>
-            </div>
-
-            @if ($errors->any())
-                <p class="alert">{{ $errors->first() }}</p>
-            @endif
-
-            <form method="POST" action="{{ url('/login') }}" class="form">
-                @csrf
-                <input type="hidden" name="role" id="role" value="{{ old('role', 'member') }}">
-
-                <label for="email">Email</label>
-                <input type="email" id="email" name="email" value="{{ old('email') }}"
-                       autocomplete="username" required autofocus>
-
-                <label for="password">Password</label>
-                <input type="password" id="password" name="password"
-                       autocomplete="current-password" required>
-
-                <div class="row">
-                    <label class="check">
-                        <input type="checkbox" name="remember"> Keep me signed in
-                    </label>
-                    <a href="{{ url('/forgot-password') }}">Forgot password?</a>
+        <section class="flex min-h-screen items-center justify-center bg-zinc-100 p-5 text-zinc-950 sm:p-10">
+            <div class="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 shadow-xl shadow-black/10 sm:p-10">
+                <div class="mb-8 lg:hidden">
+                    <p class="font-['Anton'] text-4xl tracking-[0.18em] text-lime-500">RUSH</p>
+                    <p class="text-xs font-bold tracking-[0.25em] text-zinc-500">FITNESS GYM</p>
                 </div>
 
-                <button type="submit" class="btn">Sign in</button>
-            </form>
+                <p class="text-xs font-bold uppercase tracking-[0.18em] text-lime-600">Authorized access only</p>
+                <h2 class="mt-2 text-3xl font-bold tracking-tight">Admin sign in</h2>
+                <p class="mt-2 text-sm leading-relaxed text-zinc-500">Member registration is completed in person by an administrator.</p>
 
-            <p class="foot" data-note="member">
-                New here? <a href="{{ url('/register') }}">Create a member account</a>
-            </p>
-            <p class="foot" data-note="staff" hidden>
-                Staff accounts are created by the gym admin.
-            </p>
-        </div>
-    </section>
+                @if ($errors->any())
+                    <div class="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{{ $errors->first() }}</div>
+                @endif
 
-</main>
-
-<script>
-    const roleInput = document.getElementById('role');
-    const notes = document.querySelectorAll('.foot');
-
-    document.querySelectorAll('.role').forEach(function (tab) {
-        tab.addEventListener('click', function () {
-            document.querySelectorAll('.role').forEach(function (t) {
-                t.classList.toggle('is-active', t === tab);
-                t.setAttribute('aria-selected', t === tab);
-            });
-
-            roleInput.value = tab.dataset.role;
-            document.body.dataset.role = tab.dataset.role;
-
-            notes.forEach(function (n) {
-                n.hidden = n.dataset.note !== tab.dataset.role;
-            });
-        });
-    });
-
-    // Restore the tab after a failed login attempt
-    document.querySelector('.role[data-role="' + roleInput.value + '"]')?.click();
-</script>
-
+                <form method="POST" action="{{ route('login.submit') }}" class="mt-7 grid gap-5">
+                    @csrf
+                    <label class="grid gap-2 text-sm font-bold" for="email">
+                        Email address
+                        <input class="min-h-12 rounded-lg border border-zinc-300 bg-white px-4 font-normal outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100" type="email" id="email" name="email" value="{{ old('email') }}" autocomplete="username" required autofocus>
+                    </label>
+                    <label class="grid gap-2 text-sm font-bold" for="password">
+                        Password
+                        <input class="min-h-12 rounded-lg border border-zinc-300 bg-white px-4 font-normal outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100" type="password" id="password" name="password" autocomplete="current-password" required>
+                    </label>
+                    <label class="flex min-h-11 items-center gap-3 text-sm text-zinc-600">
+                        <input class="size-5 accent-lime-500" type="checkbox" name="remember" value="1">
+                        Keep me signed in on this device
+                    </label>
+                    <button class="min-h-12 rounded-lg bg-lime-400 px-5 font-bold text-zinc-950 transition hover:bg-lime-300" type="submit">Sign in securely</button>
+                </form>
+            </div>
+        </section>
+    </main>
 </body>
 </html>
