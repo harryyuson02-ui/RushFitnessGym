@@ -11,7 +11,7 @@ class LoginController extends Controller
 {
     public function showLoginForm(): View
     {
-        return view('welcome');
+        return view('auth.login');
     }
 
     public function login(Request $request): RedirectResponse
@@ -21,15 +21,28 @@ class LoginController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        if (! Auth::attempt([...$credentials, 'role' => 'admin'], $request->boolean('remember'))) {
+        if (! Auth::attempt($credentials, $request->boolean('remember'))) {
             return back()->withErrors([
-                'email' => 'These credentials do not match an authorized administrator.',
+                'email' => 'These credentials do not match our records.',
             ])->onlyInput('email');
         }
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('admin.dashboard'));
+        $route = match ($request->user()->role) {
+            'admin' => 'admin.dashboard',
+            'coach' => 'coach.dashboard',
+            'user' => 'member.dashboard',
+            default => null,
+        };
+
+        if ($route === null) {
+            Auth::logout();
+
+            return back()->withErrors(['email' => 'This account does not have portal access.']);
+        }
+
+        return redirect()->intended(route($route));
     }
 
     public function logout(Request $request): RedirectResponse

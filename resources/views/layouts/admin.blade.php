@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#18181b">
     <title>@yield('title', 'Administration') · Rush Fitness Gym</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -57,7 +57,29 @@
                         <div class="lg:hidden"><span class="text-lg font-black tracking-[0.12em]">RUSH</span><span class="ml-2 text-[0.65rem] font-bold uppercase tracking-[0.18em] text-lime-600">Admin</span></div>
                         <div class="hidden lg:block"><p class="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-400">Rush Fitness Gym</p><p class="text-sm font-bold text-zinc-700">Administration Portal</p></div>
                     </div>
-                    <div class="flex items-center gap-3"><span class="hidden text-sm font-medium text-zinc-500 sm:inline">{{ now()->format('l, M j') }}</span><span class="size-2 rounded-full bg-lime-500" title="System online"></span></div>
+                    <div class="flex items-center gap-3">
+                        <span class="hidden text-sm font-medium text-zinc-500 sm:inline">{{ now()->format('l, M j') }}</span>
+                        @isset($notifications)
+                            <a href="#notifications" class="relative flex size-10 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-500" aria-label="View {{ $notifications->count() }} unread notifications">
+                                <svg class="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022 23.848 23.848 0 0 0 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+                                </svg>
+                                @if ($notifications->isNotEmpty())
+                                    <span class="absolute right-1 top-1 flex min-w-4 items-center justify-center rounded-full bg-lime-500 px-1 text-[0.625rem] font-extrabold leading-4 text-zinc-950" aria-hidden="true">{{ $notifications->count() }}</span>
+                                @endif
+                            </a>
+                        @endisset
+                        <details class="rush-menu relative">
+                            <summary class="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-1" aria-label="Administrator account menu">
+                                <span class="flex size-9 items-center justify-center rounded-full bg-lime-100 text-sm font-bold text-lime-900">{{ mb_strtoupper(mb_substr(auth()->user()->name, 0, 1)) }}</span>
+                                <span aria-hidden="true" class="text-zinc-500">⌄</span>
+                            </summary>
+                            <div class="absolute right-0 top-full mt-2 w-56 rounded-xl border border-zinc-200 bg-white p-3 shadow-lg">
+                                <p class="break-words px-2 py-2 text-sm font-semibold">{{ auth()->user()->name }}</p>
+                                <form method="POST" action="{{ route('logout') }}">@csrf<button type="submit" class="rush-secondary w-full">Sign out</button></form>
+                            </div>
+                        </details>
+                    </div>
                 </div>
             </header>
 
@@ -75,8 +97,8 @@
 
     <nav class="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-zinc-200 bg-white/95 px-2 pb-[max(.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-4px_20px_rgba(0,0,0,.06)] backdrop-blur lg:hidden" aria-label="Mobile navigation">
         @foreach ($navigation as $item)
-            <a href="{{ route($item['route']) }}" class="flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[0.65rem] font-semibold {{ request()->routeIs($item['active']) ? 'bg-zinc-950 text-white' : 'text-zinc-500' }}">
-                <svg class="size-5 {{ request()->routeIs($item['active']) ? 'text-lime-400' : '' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $item['icon'] }}" /></svg>
+            <a href="{{ route($item['route']) }}" @if(request()->routeIs($item['active'])) aria-current="page" @endif class="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[0.7rem] font-semibold {{ request()->routeIs($item['active']) ? 'bg-lime-100 text-zinc-950' : 'text-zinc-600' }}">
+                <svg class="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $item['icon'] }}" /></svg>
                 {{ $item['label'] }}
             </a>
         @endforeach

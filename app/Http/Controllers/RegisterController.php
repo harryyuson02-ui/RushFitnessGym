@@ -2,40 +2,32 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreRegistrationRequest;
 use App\Models\User;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\View\View;
 
 class RegisterController extends Controller
 {
-    // Show registration page
-    public function showRegistrationForm()
+    public function create(): View
     {
-        return view('register');
+        return view('auth.register');
     }
 
-    // Process registration
-    public function register(Request $request)
+    public function store(StoreRegistrationRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'unique:users,email'],
-            'password' => ['required', 'min:8', 'confirmed'],
-        ]);
-
+        $validated = $request->validated();
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-            'role' => 'member',
+            'password' => $validated['password'],
+            'role' => 'user',
         ]);
 
         Auth::login($user);
-
         $request->session()->regenerate();
 
-        return redirect()->route('member.dashboard');
+        return redirect()->route('member.dashboard')->with('success', 'Your account is ready. Complete your membership application below.');
     }
 }
-

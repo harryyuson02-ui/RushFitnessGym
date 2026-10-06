@@ -8,7 +8,9 @@ use App\Http\Requests\UpdateMemberRequest;
 use App\Models\Coach;
 use App\Models\Member;
 use App\Models\MembershipPlan;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -18,15 +20,50 @@ class MemberController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(): View
+    public function index(Request $request): View
     {
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', 'in:all,pending,active,expiring,inactive'],
+        ]);
+        $search = trim($validated['search'] ?? '');
+        $status = $validated['status'] ?? 'all';
+        $totalMembers = Member::count();
         $members = Member::query()
             ->with(['coach', 'currentSubscription.plan'])
+            ->when($search !== '', function (Builder $query) use ($search): void {
+                foreach (preg_split('/\s+/', $search) as $term) {
+                    $query->where(function (Builder $names) use ($term): void {
+                        $names->where('first_name', 'like', '%'.$term.'%')
+                            ->orWhere('last_name', 'like', '%'.$term.'%')
+                            ->orWhere('member_code', 'like', '%'.$term.'%');
+                    });
+                }
+            })
+            ->when(in_array($status, ['active', 'expiring'], true), function (Builder $query) use ($status): void {
+                $query->whereHas('currentSubscription', function (Builder $subscription) use ($status): void {
+                    $subscription->active();
+                    if ($status === 'expiring') {
+                        $subscription->whereDate('expires_at', '<=', today()->addDays(3));
+                    }
+                });
+            })
+            ->when($status === 'pending', function (Builder $query): void {
+                $query->whereHas('currentSubscription', fn (Builder $subscription): Builder => $subscription->where('status', 'pending'));
+            })
+            ->when($status === 'inactive', function (Builder $query): void {
+                $query->whereDoesntHave('currentSubscription', function (Builder $subscription): void {
+                    $subscription->where(function (Builder $status): void {
+                        $status->active()->orWhere('status', 'pending');
+                    });
+                });
+            })
             ->orderBy('last_name')
             ->orderBy('first_name')
-            ->get();
+            ->paginate(12)
+            ->withQueryString();
 
-        return view('admin.members.index', compact('members'));
+        return view('admin.members.index', compact('members', 'search', 'status', 'totalMembers'));
     }
 
     /**
@@ -56,7 +93,7 @@ class MemberController extends Controller
                 'member_code' => $this->nextMemberCode(),
             ]);
 
-            $member->subscriptions()->create([
+            $subscription = $member->subscriptions()->create([
                 'membership_plan_id' => $validated['membership_plan_id'],
                 'starts_at' => $validated['starts_at'],
                 'expires_at' => $validated['expires_at'],
@@ -64,6 +101,16 @@ class MemberController extends Controller
                 'access_token' => (string) Str::uuid(),
                 'paid_at' => now(),
                 'qr_issued_at' => now(),
+            ]);
+
+            $plan = MembershipPlan::findOrFail($validated['membership_plan_id']);
+            $member->transactions()->create([
+                'subscription_id' => $subscription->id,
+                'membership_plan_id' => $plan->id,
+                'amount' => $plan->price,
+                'payment_method' => 'cash',
+                'status' => 'paid',
+                'paid_at' => now(),
             ]);
 
             return $member;
@@ -89,8 +136,8 @@ class MemberController extends Controller
             'member' => $member,
             'subscription' => $subscription,
             'plans' => MembershipPlan::where('is_active', true)->orderBy('price')->get(),
-            'messageUrl' => $message === null ? null : ($member->preferred_channel === 'whatsapp'
-                ? 'https://wa.me/'.$phone.'?text='.rawurlencode($message)
+            'messageUrl' => $message === null ? null : ($member->preferred_channel === 'private_message' && $member->user
+                ? route('chat.show', $member->user)
                 : 'sms:'.$member->phone.'?body='.rawurlencode($message)),
         ]);
     }

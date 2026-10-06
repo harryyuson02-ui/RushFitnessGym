@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('layouts.portal')
 
 @section('title', 'Onboard Member')
 
@@ -16,7 +16,7 @@
             <label class="grid gap-2 text-sm font-bold">Mobile number<input class="min-h-12 rounded-xl border border-zinc-300 px-4 font-normal focus:border-lime-500 focus:outline-none focus:ring-4 focus:ring-lime-100" name="phone" value="{{ old('phone') }}" inputmode="tel" required><x-input-error :messages="$errors->get('phone')" /></label>
             <label class="grid gap-2 text-sm font-bold">Email (optional)<input class="min-h-12 rounded-xl border border-zinc-300 px-4 font-normal focus:border-lime-500 focus:outline-none focus:ring-4 focus:ring-lime-100" type="email" name="email" value="{{ old('email') }}"><x-input-error :messages="$errors->get('email')" /></label>
             <label class="grid gap-2 text-sm font-bold sm:col-span-2">Address<textarea class="min-h-24 rounded-xl border border-zinc-300 p-4 font-normal focus:border-lime-500 focus:outline-none focus:ring-4 focus:ring-lime-100" name="address">{{ old('address') }}</textarea><x-input-error :messages="$errors->get('address')" /></label>
-            <label class="grid gap-2 text-sm font-bold">Preferred message channel<select class="min-h-12 rounded-xl border border-zinc-300 bg-white px-4 font-normal" name="preferred_channel" required><option value="sms" @selected(old('preferred_channel') === 'sms')>SMS</option><option value="whatsapp" @selected(old('preferred_channel') === 'whatsapp')>WhatsApp</option></select></label>
+            <label class="grid gap-2 text-sm font-bold">Preferred message channel<select class="min-h-12 rounded-xl border border-zinc-300 bg-white px-4 font-normal" name="preferred_channel" required><option value="private_message" @selected(old('preferred_channel', 'private_message') === 'private_message')>Private message</option><option value="sms" @selected(old('preferred_channel') === 'sms')>SMS</option></select></label>
         </div>
     </section>
 

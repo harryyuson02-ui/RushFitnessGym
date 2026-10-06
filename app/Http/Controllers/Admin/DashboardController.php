@@ -24,7 +24,6 @@ class DashboardController extends Controller
             'activeSubscriptionCount' => Subscription::active()->count(),
             'availableCoachCount' => Coach::where('is_available', true)->count(),
             'expiringSubscriptions' => $expiringSubscriptions,
-            'notifications' => request()->user()->unreadNotifications()->latest()->limit(5)->get(),
         ]);
     }
 }

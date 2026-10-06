@@ -48,4 +48,14 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => ['role' => 'staff']);
     }
+
+    public function coach(): static
+    {
+        return $this->state(fn (array $attributes): array => ['role' => 'coach']);
+    }
+
+    public function member(): static
+    {
+        return $this->state(fn (array $attributes): array => ['role' => 'user']);
+    }
 }

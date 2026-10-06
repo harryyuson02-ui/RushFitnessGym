@@ -6,7 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCoachRequest;
 use App\Http\Requests\UpdateCoachRequest;
 use App\Models\Coach;
+use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class CoachController extends Controller
@@ -14,9 +23,29 @@ class CoachController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(): View
+    public function index(Request $request): Response
     {
-        return view('admin.coaches.index', ['coaches' => Coach::withCount('members')->orderBy('name')->get()]);
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'specialty' => ['nullable', Rule::in(Coach::SPECIALTIES)],
+        ]);
+        $search = trim($validated['search'] ?? '');
+        $specialty = $validated['specialty'] ?? '';
+        $coaches = Coach::withCount('members')
+            ->when($search !== '', function (Builder $query) use ($search): void {
+                $query->where(function (Builder $matches) use ($search): void {
+                    $matches->where('name', 'like', '%'.$search.'%')
+                        ->orWhere('specialty', 'like', '%'.$search.'%');
+                });
+            })
+            ->when($specialty !== '', fn (Builder $query): Builder => $query->where('specialty', $specialty))
+            ->orderBy('name')->paginate(12)->withQueryString();
+
+        $credentials = $request->session()->pull('coach_credentials');
+        $temporaryPassword = $credentials ? Crypt::decryptString($credentials['password']) : null;
+
+        return response()->view('admin.coaches.index', compact('coaches', 'search', 'specialty', 'credentials', 'temporaryPassword'))
+            ->header('Cache-Control', 'no-store, private');
     }
 
     /**
@@ -32,9 +61,34 @@ class CoachController extends Controller
      */
     public function store(StoreCoachRequest $request): RedirectResponse
     {
-        Coach::create([...$request->validated(), 'is_available' => $request->boolean('is_available')]);
+        $validated = $request->validated();
+        $availabilitySlots = $this->availabilitySlots($validated['availability']);
+        $temporaryPassword = Str::password(20, spaces: false);
 
-        return redirect()->route('admin.coaches.index')->with('success', 'Coach added to the roster.');
+        DB::transaction(function () use ($validated, $availabilitySlots, $request, $temporaryPassword): void {
+            $user = User::create([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'password' => $temporaryPassword,
+                'role' => 'coach',
+                'phone' => $validated['phone'],
+            ]);
+            $coach = Coach::create([
+                ...Arr::except($validated, ['availability']),
+                'user_id' => $user->id,
+                'schedule' => Coach::scheduleSummary($availabilitySlots),
+                'is_available' => $request->boolean('is_available'),
+            ]);
+
+            $coach->availabilitySlots()->createMany($availabilitySlots);
+        });
+
+        return redirect()->route('admin.coaches.index')
+            ->with('success', 'Coach added to the roster with a portal account.')
+            ->with('coach_credentials', [
+                'email' => $validated['email'],
+                'password' => Crypt::encryptString($temporaryPassword),
+            ]);
     }
 
     /**
@@ -50,7 +104,7 @@ class CoachController extends Controller
      */
     public function edit(Coach $coach): View
     {
-        return view('admin.coaches.edit', compact('coach'));
+        return view('admin.coaches.edit', ['coach' => $coach->load('availabilitySlots')]);
     }
 
     /**
@@ -58,7 +112,19 @@ class CoachController extends Controller
      */
     public function update(UpdateCoachRequest $request, Coach $coach): RedirectResponse
     {
-        $coach->update([...$request->validated(), 'is_available' => $request->boolean('is_available')]);
+        $validated = $request->validated();
+        $availabilitySlots = $this->availabilitySlots($validated['availability']);
+
+        DB::transaction(function () use ($coach, $validated, $availabilitySlots, $request): void {
+            $coach->update([
+                ...Arr::except($validated, ['availability']),
+                'schedule' => Coach::scheduleSummary($availabilitySlots),
+                'is_available' => $request->boolean('is_available'),
+            ]);
+
+            $coach->availabilitySlots()->delete();
+            $coach->availabilitySlots()->createMany($availabilitySlots);
+        });
 
         return redirect()->route('admin.coaches.index')->with('success', 'Coach details updated.');
     }
@@ -71,5 +137,24 @@ class CoachController extends Controller
         $coach->delete();
 
         return redirect()->route('admin.coaches.index')->with('success', 'Coach removed from the roster.');
+    }
+
+    /**
+     * @param  array<int, array{day_of_week: int|string, enabled?: bool|string, starts_at: string, ends_at: string}>  $availability
+     * @return array<int, array{day_of_week: int, starts_at: string, ends_at: string, is_available: bool}>
+     */
+    private function availabilitySlots(array $availability): array
+    {
+        return collect($availability)
+            ->filter(fn (array $slot): bool => (bool) ($slot['enabled'] ?? false))
+            ->map(fn (array $slot): array => [
+                'day_of_week' => (int) $slot['day_of_week'],
+                'starts_at' => $slot['starts_at'],
+                'ends_at' => $slot['ends_at'],
+                'is_available' => true,
+            ])
+            ->sortBy('day_of_week')
+            ->values()
+            ->all();
     }
 }

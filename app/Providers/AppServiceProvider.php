@@ -2,7 +2,12 @@
 
 namespace App\Providers;
 
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -19,6 +24,35 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        RateLimiter::for('login-code', function (Request $request): array {
+            $email = Str::lower($request->string('email')->toString());
+
+            return [
+                Limit::perMinute(3)->by('login-code-ip:'.$request->ip()),
+                Limit::perHour(5)->by('login-code-email:'.$email),
+            ];
+        });
+
+        RateLimiter::for('login-code-verify', fn (Request $request): Limit => Limit::perMinute(10)->by(
+            'login-code-verify:'.($request->session()->get('login_code.challenge') ?? $request->ip()),
+        ));
+
+        RateLimiter::for('password-reset-code', function (Request $request): array {
+            $email = Str::lower($request->string('email')->toString());
+
+            return [
+                Limit::perMinute(3)->by('password-reset-ip:'.$request->ip()),
+                Limit::perHour(5)->by('password-reset-email:'.$email),
+            ];
+        });
+
+        RateLimiter::for('password-reset-verify', fn (Request $request): Limit => Limit::perMinute(10)->by(
+            'password-reset-verify:'.($request->session()->get('password_reset.challenge') ?? $request->ip()),
+        ));
+
+        View::composer('layouts.portal', function ($view): void {
+            $user = auth()->user();
+            $view->with('portalNotifications', $user?->unreadNotifications()->latest()->limit(6)->get() ?? collect());
+        });
     }
 }

@@ -28,7 +28,11 @@ class MemberFactory extends Factory
             'phone' => fake()->numerify('09#########'),
             'email' => fake()->unique()->safeEmail(),
             'address' => fake()->address(),
-            'preferred_channel' => fake()->randomElement(['sms', 'whatsapp']),
+            'preferred_channel' => fake()->randomElement(['sms', 'private_message']),
+            'fitness_goal' => fake()->randomElement(['Weight loss', 'Build muscle', 'Improve strength', 'General fitness']),
+            'availability_days' => ['Monday', 'Wednesday', 'Friday'],
+            'availability_starts_at' => '17:00',
+            'availability_ends_at' => '19:00',
             'coach_id' => Coach::factory(),
         ];
     }
