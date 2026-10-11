@@ -22,7 +22,11 @@ class ApplicationController extends Controller
         $validated = $request->validated();
         $plan = MembershipPlan::findOrFail($validated['membership_plan_id']);
         $requestedCoach = isset($validated['coach_id']) ? Coach::findOrFail($validated['coach_id']) : null;
-        $receiptPath = $request->file('receipt')?->store('receipts');
+        $receiptPath = $request->file('receipt')?->store('receipts', config('filesystems.default'));
+
+        if ($request->hasFile('receipt') && ! is_string($receiptPath)) {
+            abort(500, 'The payment receipt could not be stored.');
+        }
         $phone = $validated['phone_country_code'].' '.$validated['phone'];
 
         $subscription = DB::transaction(function () use ($request, $validated, $plan, $requestedCoach, $receiptPath, $phone): Subscription {

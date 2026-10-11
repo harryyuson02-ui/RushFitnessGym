@@ -30,7 +30,7 @@ class ApprovalController extends Controller
                 'member:id,user_id,coach_id,member_code,first_name,last_name,fitness_goal',
                 'plan:id,name,price',
                 'requestedCoach:id,name',
-                'transactions:id,subscription_id,payment_method,reference,status',
+                'transactions:id,subscription_id,payment_method,reference,receipt_path,status',
             ])
             ->where('status', 'pending')
             ->latest()

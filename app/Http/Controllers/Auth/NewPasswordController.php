@@ -59,6 +59,6 @@ class NewPasswordController extends Controller
             return null;
         }
 
-        return User::query()->where('role', 'user')->whereHas('member')->find($userId);
+        return User::query()->whereIn('role', ['admin', 'coach', 'user'])->find($userId);
     }
 }

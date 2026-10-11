@@ -20,6 +20,10 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        if (app()->isProduction()) {
+            throw new \RuntimeException('The development seeder is disabled in production because it creates demonstration accounts with known passwords.');
+        }
+
         $this->call([
             CoachSeeder::class,
             MembershipPlanSeeder::class,

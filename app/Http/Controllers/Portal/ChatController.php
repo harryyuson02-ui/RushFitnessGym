@@ -11,9 +11,10 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ChatController extends Controller
 {
@@ -78,7 +79,7 @@ class ChatController extends Controller
         abort_unless($this->canMessage($request->user(), $contact), 403);
         $validated = $request->validated();
         $attachment = $request->file('attachment');
-        $attachmentPath = $attachment?->store('chat-attachments');
+        $attachmentPath = $attachment?->store('chat-attachments', config('filesystems.default'));
 
         if ($attachment !== null && ! is_string($attachmentPath)) {
             abort(500, 'The attachment could not be stored.');
@@ -101,22 +102,52 @@ class ChatController extends Controller
         return redirect()->route('chat.show', $contact);
     }
 
-    public function attachment(Request $request, Message $message): BinaryFileResponse
+    public function attachment(Request $request, Message $message): StreamedResponse
     {
         abort_unless(
             in_array($request->user()->id, [$message->sender_id, $message->recipient_id], true),
             403,
         );
-        abort_if($message->attachment_path === null || ! Storage::disk('local')->exists($message->attachment_path), 404);
+        $disk = Storage::disk(config('filesystems.default'));
+        abort_if($message->attachment_path === null || ! $disk->exists($message->attachment_path), 404);
 
-        return response()->file(
-            Storage::disk('local')->path($message->attachment_path),
+        return $disk->response(
+            $message->attachment_path,
+            $message->attachment_name,
             [
                 'Content-Type' => $message->attachment_mime,
                 'Cache-Control' => 'private, max-age=300',
                 'X-Content-Type-Options' => 'nosniff',
             ],
-        )->setContentDisposition('inline', $message->attachment_name);
+            'inline',
+        );
+    }
+
+    public function destroy(Request $request, Message $message): RedirectResponse
+    {
+        abort_unless($message->sender_id === $request->user()->id, 403);
+
+        $message->loadMissing('recipient');
+        $contact = $message->recipient;
+        $disk = Storage::disk(config('filesystems.default'));
+
+        if ($message->attachment_path !== null && $disk->exists($message->attachment_path)) {
+            abort_unless($disk->delete($message->attachment_path), 500, 'The message attachment could not be removed.');
+        }
+
+        DB::transaction(function () use ($message): void {
+            $message->recipient->notifications()
+                ->where('type', NewMessageReceived::class)
+                ->get()
+                ->filter(fn ($notification): bool => ($notification->data['message_id'] ?? null) === $message->id)
+                ->each->delete();
+
+            $message->delete();
+        });
+
+        return $this->canMessage($request->user(), $contact)
+            ? redirect()->route('chat.show', $contact)->with('success', 'Message unsent.')
+            : redirect()->route('chat.index')->with('success', 'Message unsent.');
     }
 
     private function contacts(User $user, string $search = ''): Collection

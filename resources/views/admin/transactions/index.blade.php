@@ -36,7 +36,7 @@
                         <td>{{ $transaction->created_at->format('M j, Y') }}</td>
                         <td><p class="font-semibold">{{ $transaction->member->full_name }}</p><p class="text-xs text-zinc-500">{{ $transaction->member->member_code }}</p></td>
                         <td>{{ $transaction->plan?->name ?? '—' }}</td>
-                        <td class="uppercase">{{ $transaction->payment_method }}@if($transaction->reference)<p class="text-xs normal-case text-zinc-500">Ref: {{ $transaction->reference }}</p>@endif</td>
+                        <td class="uppercase">{{ $transaction->payment_method }}@if($transaction->reference)<p class="text-xs normal-case text-zinc-500">Ref: {{ $transaction->reference }}</p>@endif @if($transaction->receipt_path)<a class="mt-1 inline-flex text-xs font-bold normal-case text-lime-700 hover:text-lime-800" href="{{ route('admin.transactions.receipt', $transaction) }}" target="_blank" rel="noopener">View receipt</a>@endif</td>
                         <td class="font-semibold">₱{{ number_format($transaction->amount, 2) }}</td>
                         <td><span class="rush-badge {{ $transaction->status === 'paid' ? 'bg-lime-100 text-lime-900' : 'bg-amber-100 text-amber-900' }}">{{ ucfirst($transaction->status) }}</span></td>
                     </tr>

@@ -37,8 +37,7 @@ class PasswordResetChallengeController extends Controller
         $email = $request->validated('email');
         $user = User::query()
             ->where('email', $email)
-            ->where('role', 'user')
-            ->whereHas('member')
+            ->whereIn('role', ['admin', 'coach', 'user'])
             ->first();
         $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
         $challengeId = (string) Str::uuid();

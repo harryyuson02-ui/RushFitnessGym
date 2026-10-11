@@ -12,8 +12,6 @@ use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Admin\SubscriptionQrController;
 use App\Http\Controllers\Admin\TransactionController as AdminTransactionController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
-use App\Http\Controllers\Auth\LoginCodeChallengeController;
-use App\Http\Controllers\Auth\LoginCodeVerificationController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetChallengeController;
 use App\Http\Controllers\Auth\PasswordResetVerificationController;
@@ -47,9 +45,6 @@ Route::post('/register', [RegisterController::class, 'store'])
     ->name('register.store');
 
 Route::middleware('guest')->group(function (): void {
-    Route::post('/login/code', [LoginCodeChallengeController::class, 'store'])->middleware('throttle:login-code')->name('login.code.send');
-    Route::get('/login/code', [LoginCodeVerificationController::class, 'create'])->name('login.code');
-    Route::post('/login/code/verify', [LoginCodeVerificationController::class, 'store'])->middleware('throttle:login-code-verify')->name('login.code.verify');
     Route::get('/forgot-password', [PasswordResetChallengeController::class, 'create'])->name('password.request');
     Route::post('/forgot-password', [PasswordResetChallengeController::class, 'store'])->middleware('throttle:password-reset-code')->name('password.send-code');
     Route::get('/forgot-password/code', [PasswordResetVerificationController::class, 'create'])->name('password.code');
@@ -81,6 +76,7 @@ Route::middleware('auth')->group(function (): void {
     Route::put('/account', [ProfileController::class, 'update'])->name('profile.update');
     Route::get('/chat', [ChatController::class, 'index'])->name('chat.index');
     Route::get('/chat/messages/{message}/attachment', [ChatController::class, 'attachment'])->middleware('throttle:120,1')->name('chat.attachment');
+    Route::delete('/chat/messages/{message}', [ChatController::class, 'destroy'])->middleware('throttle:30,1')->name('chat.destroy');
     Route::get('/chat/{contact}', [ChatController::class, 'show'])->name('chat.show');
     Route::post('/chat/{contact}', [ChatController::class, 'store'])->middleware('throttle:30,1')->name('chat.store');
     Route::patch('/notifications/{notification}', [NotificationController::class, 'update'])->name('notifications.update');
@@ -100,6 +96,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::resource('plans', MembershipPlanController::class)->parameters(['plans' => 'plan']);
     Route::resource('users', AdminUserController::class)->only(['edit', 'update']);
     Route::get('/transactions', [AdminTransactionController::class, 'index'])->name('transactions.index');
+    Route::get('/transactions/{transaction}/receipt', [AdminTransactionController::class, 'receipt'])
+        ->middleware('throttle:60,1')
+        ->name('transactions.receipt');
     Route::get('/approvals', [ApprovalController::class, 'index'])->name('approvals.index');
     Route::patch('/approvals/members/{subscription}', GymAccessApprovalController::class)->name('approvals.members.update');
     Route::patch('/approvals/availability/{availabilityChange}', CoachAvailabilityApprovalController::class)->name('approvals.availability.update');

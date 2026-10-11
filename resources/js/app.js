@@ -5,6 +5,10 @@ document.querySelectorAll('[data-password-toggle]').forEach((button) => {
         input.type = visible ? 'text' : 'password';
         button.setAttribute('aria-pressed', String(visible));
         button.setAttribute('aria-label', visible ? 'Hide password' : 'Show password');
+        const showIcon = button.querySelector('[data-password-show]');
+        const hideIcon = button.querySelector('[data-password-hide]');
+        if (showIcon) showIcon.hidden = visible;
+        if (hideIcon) hideIcon.hidden = !visible;
     });
 });
 

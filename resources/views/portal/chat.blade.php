@@ -79,6 +79,13 @@
                                 <div class="mt-2 min-w-56 rounded-xl bg-white p-2 text-zinc-900"><p class="mb-1 truncate text-xs font-semibold">Voice message</p><audio class="w-full" controls preload="metadata" src="{{ route('chat.attachment', $message) }}"></audio></div>
                             @endif
                             <time class="mt-1 block text-[0.65rem] opacity-60">{{ $message->created_at->format('M j · g:i A') }}</time>
+                            @if($message->sender_id === auth()->id())
+                                <form method="POST" action="{{ route('chat.destroy', $message) }}" class="mt-1 text-right" onsubmit="return confirm('Unsend this message for everyone?')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="rounded-lg px-2 py-1 text-[0.7rem] font-semibold text-zinc-300 transition hover:-translate-y-0.5 hover:bg-white/10 hover:text-white hover:shadow-sm">Delete / unsend</button>
+                                </form>
+                            @endif
                         </div>
                     </div>
                 @empty

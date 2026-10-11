@@ -24,19 +24,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        RateLimiter::for('login-code', function (Request $request): array {
-            $email = Str::lower($request->string('email')->toString());
-
-            return [
-                Limit::perMinute(3)->by('login-code-ip:'.$request->ip()),
-                Limit::perHour(5)->by('login-code-email:'.$email),
-            ];
-        });
-
-        RateLimiter::for('login-code-verify', fn (Request $request): Limit => Limit::perMinute(10)->by(
-            'login-code-verify:'.($request->session()->get('login_code.challenge') ?? $request->ip()),
-        ));
-
         RateLimiter::for('password-reset-code', function (Request $request): array {
             $email = Str::lower($request->string('email')->toString());
 

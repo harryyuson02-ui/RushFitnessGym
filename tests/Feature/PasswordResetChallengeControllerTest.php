@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Notifications\PasswordResetCode;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Notification;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class PasswordResetChallengeControllerTest extends TestCase
@@ -17,19 +18,27 @@ class PasswordResetChallengeControllerTest extends TestCase
     {
         $this->get(route('login'))
             ->assertSee('Forgot password?')
-            ->assertSee(route('password.request'));
+            ->assertSee(route('password.request'))
+            ->assertDontSee('Email me a verification code');
+
+        $this->post('/login/code', ['email' => 'member@example.test'])->assertNotFound();
     }
 
-    public function test_member_receives_a_reset_code_at_the_account_email_address(): void
+    #[DataProvider('portalRoles')]
+    public function test_each_portal_role_receives_a_reset_code_at_the_account_email_address(string $role): void
     {
-        $user = User::factory()->member()->create(['email' => 'member@example.test']);
-        Member::factory()->for($user)->create();
+        $user = User::factory()->create(['email' => 'portal@example.test', 'role' => $role]);
+
+        if ($role === 'user') {
+            Member::factory()->for($user)->create();
+        }
+
         Notification::fake([PasswordResetCode::class]);
 
-        $response = $this->post(route('password.send-code'), ['email' => 'member@example.test']);
+        $response = $this->post(route('password.send-code'), ['email' => 'portal@example.test']);
 
         $response->assertRedirect(route('password.code'))->assertSessionHas('status');
-        $this->assertSame('member@example.test', $user->routeNotificationFor('mail'));
+        $this->assertSame('portal@example.test', $user->routeNotificationFor('mail'));
         Notification::assertSentTo(
             $user,
             PasswordResetCode::class,
@@ -41,6 +50,16 @@ class PasswordResetChallengeControllerTest extends TestCase
                     && in_array($notification->code, $message->introLines, true);
             },
         );
+    }
+
+    /** @return array<string, array{string}> */
+    public static function portalRoles(): array
+    {
+        return [
+            'administrator' => ['admin'],
+            'coach' => ['coach'],
+            'member' => ['user'],
+        ];
     }
 
     public function test_unknown_email_gets_the_same_recovery_response_without_sending_a_code(): void

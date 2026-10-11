@@ -36,7 +36,7 @@ class PasswordResetVerificationController extends Controller
 
         $isValid = Hash::check($request->validated('code'), $challenge['code_hash']);
         $user = $isValid && is_int($challenge['user_id'])
-            ? User::query()->where('role', 'user')->whereHas('member')->find($challenge['user_id'])
+            ? User::query()->whereIn('role', ['admin', 'coach', 'user'])->find($challenge['user_id'])
             : null;
 
         if ($user === null) {

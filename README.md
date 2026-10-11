@@ -1,58 +1,85 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Rush Fitness Gym
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Laravel-based gym membership, coaching, payment review, QR attendance, scheduling, notifications, and private chat portal.
 
-## About Laravel
+## Local development
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Requirements: PHP 8.3+, Composer, Node.js, and MySQL/MariaDB.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
-
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
-```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+```powershell
+composer install
+npm install
+Copy-Item .env.example .env
+php artisan key:generate
+php artisan migrate --seed
+composer run dev
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+The development seeder creates demonstration accounts with known passwords. It is deliberately blocked when `APP_ENV=production`.
 
-## Contributing
+For live mobile-camera testing, run `composer run mobile` and open the temporary HTTPS URL shown in the terminal. The tunnel is for development only and exposes the local login page while it is running.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## Production deployment
 
-## Code of Conduct
+1. Provision a permanent HTTPS domain, PHP 8.3+, MySQL/MariaDB, and persistent object or server storage.
+2. Copy `.env.production.example` to `.env` and replace every placeholder. Never commit `.env`.
+3. Configure a real SMTP provider so sign-in and password-reset codes are delivered.
+4. Build and prepare the application:
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+composer install --no-dev --optimize-autoloader
+npm ci
+npm run build
+php artisan key:generate
+php artisan migrate --force
+php artisan app:create-admin admin@example.com --name="Rush Fitness Admin"
+php artisan app:deployment-check
+php artisan optimize
+```
 
-## Security Vulnerabilities
+Do not run `php artisan migrate:fresh` or `php artisan db:seed` in production.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+Serve the `public` directory through Nginx or Apache. Do not use `php artisan serve` in production.
 
-## License
+### Required background process
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Configure the host scheduler to run Laravel every minute:
+
+```cron
+* * * * * cd /var/www/rush-fitness-gym && php artisan schedule:run >> /dev/null 2>&1
+```
+
+This updates expired subscriptions and sends three-day expiration alerts. If queued jobs are introduced later, also run `php artisan queue:work` under Supervisor or the hosting provider's worker service.
+
+### Storage and backups
+
+- Ephemeral/container hosting: configure `FILESYSTEM_DISK=s3` and the AWS-compatible credentials.
+- Persistent VPS storage: `FILESYSTEM_DISK=local` is supported, but `storage/app/private` must be included in backups.
+- Back up the production database and private uploads daily. Test restoration before launch and periodically afterward.
+- Keep database and object-storage retention/versioning enabled where supported.
+
+### Release procedure
+
+```bash
+php artisan down --retry=30
+git pull --ff-only
+composer install --no-dev --optimize-autoloader
+npm ci
+npm run build
+php artisan migrate --force
+php artisan optimize
+php artisan app:deployment-check
+php artisan up
+```
+
+Test login, password recovery, payment receipt review, chat/media, QR download, QR attendance scanning, and scheduler output after each release. Deploy to staging before production whenever database migrations are included.
+
+## Verification
+
+```powershell
+php artisan test
+composer audit --locked
+npm audit
+npm run build
+vendor\bin\pint --test
+```

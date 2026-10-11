@@ -150,6 +150,15 @@ class PortalWorkflowsTest extends TestCase
         Storage::disk('local')->assertExists($transaction->receipt_path);
         Notification::assertNotSentTo($coachUser, ApprovalRequested::class);
         Notification::assertSentTo($admin, ApprovalRequested::class, fn (ApprovalRequested $notification): bool => $notification->routeName === 'admin.approvals.index');
+
+        $this->actingAs($admin)->get(route('admin.approvals.index'))
+            ->assertOk()
+            ->assertSeeText('View payment receipt')
+            ->assertSee(route('admin.transactions.receipt', $transaction), false);
+        $this->get(route('admin.transactions.receipt', $transaction))
+            ->assertOk()
+            ->assertHeader('X-Content-Type-Options', 'nosniff');
+        $this->actingAs($user)->get(route('admin.transactions.receipt', $transaction))->assertForbidden();
     }
 
     public function test_member_can_submit_a_gym_only_application_without_a_coach(): void
@@ -517,6 +526,43 @@ class PortalWorkflowsTest extends TestCase
                 base64_decode('UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA='),
             ),
         ])->assertSessionHasErrors('attachment');
+    }
+
+    public function test_only_the_sender_can_delete_and_unsend_a_chat_message(): void
+    {
+        Storage::fake('local');
+        $sender = User::factory()->create();
+        $recipient = User::factory()->member()->create();
+        $outsider = User::factory()->member()->create();
+
+        $this->actingAs($sender)->post(route('chat.store', $recipient), [
+            'body' => 'This can be unsent.',
+            'attachment' => UploadedFile::fake()->create('private-photo.jpg', 100, 'image/jpeg'),
+        ])->assertRedirect(route('chat.show', $recipient));
+
+        $message = Message::whereBelongsTo($sender, 'sender')->firstOrFail();
+        $attachmentPath = $message->attachment_path;
+        Storage::disk('local')->assertExists($attachmentPath);
+        $this->assertSame($message->id, $recipient->notifications()->firstOrFail()->data['message_id']);
+
+        $this->actingAs($recipient)->delete(route('chat.destroy', $message))->assertForbidden();
+        $this->actingAs($outsider)->delete(route('chat.destroy', $message))->assertForbidden();
+        $this->assertDatabaseHas('messages', ['id' => $message->id]);
+
+        $this->actingAs($sender)->get(route('chat.show', $recipient))
+            ->assertOk()
+            ->assertSeeText('Delete / unsend')
+            ->assertSee(route('chat.destroy', $message), false);
+        $this->delete(route('chat.destroy', $message))
+            ->assertRedirect(route('chat.show', $recipient))
+            ->assertSessionHas('success', 'Message unsent.');
+
+        $this->assertDatabaseMissing('messages', ['id' => $message->id]);
+        Storage::disk('local')->assertMissing($attachmentPath);
+        $this->assertDatabaseMissing('notifications', [
+            'notifiable_id' => $recipient->id,
+            'type' => NewMessageReceived::class,
+        ]);
     }
 
     public function test_coaches_and_members_share_the_complete_chat_toolset(): void

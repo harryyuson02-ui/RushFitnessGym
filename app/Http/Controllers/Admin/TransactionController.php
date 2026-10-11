@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Transaction;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TransactionController extends Controller
 {
@@ -44,5 +46,21 @@ class TransactionController extends Controller
             ->withQueryString();
 
         return view('admin.transactions.index', compact('transactions', 'status', 'search'));
+    }
+
+    public function receipt(Transaction $transaction): StreamedResponse
+    {
+        abort_if($transaction->receipt_path === null, 404);
+
+        $disk = Storage::disk(config('filesystems.default'));
+        abort_unless($disk->exists($transaction->receipt_path), 404);
+
+        $extension = pathinfo($transaction->receipt_path, PATHINFO_EXTENSION);
+        $filename = $transaction->member()->value('member_code').'-receipt'.($extension !== '' ? '.'.$extension : '');
+
+        return $disk->response($transaction->receipt_path, $filename, [
+            'Cache-Control' => 'private, no-store, max-age=0',
+            'X-Content-Type-Options' => 'nosniff',
+        ], 'inline');
     }
 }

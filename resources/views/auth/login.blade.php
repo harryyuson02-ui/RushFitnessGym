@@ -46,15 +46,6 @@
                     Keep me signed in on this device
                 </label>
                 <button class="rush-primary" type="submit">Sign in securely</button>
-                <div class="flex items-center gap-3" aria-hidden="true">
-                    <span class="h-px flex-1 bg-zinc-200"></span>
-                    <span class="text-xs font-semibold uppercase tracking-wider text-zinc-400">or</span>
-                    <span class="h-px flex-1 bg-zinc-200"></span>
-                </div>
-                <div class="grid gap-2">
-                    <button class="rush-secondary" type="submit" formaction="{{ route('login.code.send') }}" formnovalidate>Email me a verification code</button>
-                    <p class="text-center text-xs leading-5 text-zinc-500">We’ll send a six-digit code to the email address above. No password is required.</p>
-                </div>
                 <a href="{{ route('register') }}" class="rush-secondary text-center">Create account</a>
             </form>
             <p class="mt-7 flex items-center justify-center gap-2 text-xs leading-5 text-zinc-500">

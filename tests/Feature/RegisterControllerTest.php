@@ -10,6 +10,17 @@ class RegisterControllerTest extends TestCase
 {
     use LazilyRefreshDatabase;
 
+    public function test_registration_page_has_password_visibility_controls(): void
+    {
+        $this->get(route('register'))
+            ->assertOk()
+            ->assertSee('id="register-password"', false)
+            ->assertSee('aria-controls="register-password"', false)
+            ->assertSee('id="register-password-confirmation"', false)
+            ->assertSee('aria-controls="register-password-confirmation"', false)
+            ->assertSee('data-password-toggle', false);
+    }
+
     public function test_guest_can_create_a_member_account_and_continue_to_onboarding(): void
     {
         $response = $this->post(route('register.store'), [
