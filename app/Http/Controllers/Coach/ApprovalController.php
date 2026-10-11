@@ -3,8 +3,7 @@
 namespace App\Http\Controllers\Coach;
 
 use App\Http\Controllers\Controller;
-use App\Models\Subscription;
-use Illuminate\Database\Eloquent\Builder;
+use App\Models\CoachAssignmentRequest;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -15,17 +14,15 @@ class ApprovalController extends Controller
         $coach = $request->user()->coach;
         abort_unless($coach, 403);
 
-        $memberApplications = Subscription::query()
+        $assignmentRequests = CoachAssignmentRequest::query()
             ->with([
-                'member:id,user_id,coach_id,member_code,first_name,last_name,email,phone,fitness_goal,availability_days,availability_starts_at,availability_ends_at',
-                'plan:id,name,price',
-                'transactions:id,subscription_id,payment_method,reference,receipt_path,status',
+                'member:id,user_id,coach_id,member_code,first_name,last_name,fitness_goal,availability_days,availability_starts_at,availability_ends_at',
             ])
             ->where('status', 'pending')
-            ->whereHas('member', fn (Builder $query): Builder => $query->whereBelongsTo($coach))
+            ->whereBelongsTo($coach)
             ->latest()
             ->get();
 
-        return view('coach.approvals.index', compact('memberApplications'));
+        return view('coach.approvals.index', compact('assignmentRequests'));
     }
 }

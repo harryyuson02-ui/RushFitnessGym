@@ -1,6 +1,6 @@
 @php
     $initialStep = $errors->hasAny(['fitness_goal']) ? 0
-        : ($errors->hasAny(['first_name', 'last_name', 'gender', 'phone_country_code', 'phone', 'address', 'preferred_channel']) ? 1
+        : ($errors->hasAny(['first_name', 'last_name', 'gender', 'phone_country_code', 'phone', 'address']) ? 1
         : ($errors->hasAny(['availability_days', 'availability_starts_at', 'availability_ends_at']) ? 2
         : ($errors->any() ? 3 : 0)));
 @endphp
@@ -47,7 +47,6 @@
                 </label>
                 <label class="rush-label">Address<select class="rush-input" name="address" required><option value="">Select city or municipality</option>@foreach(['Tagum City','Davao City','Panabo City','Samal City','Maco','Mabini','Pantukan'] as $option)<option @selected(old('address') === $option)>{{ $option }}</option>@endforeach</select></label>
             </div>
-            <fieldset class="mt-5"><legend class="text-sm font-bold">Preferred message channel</legend><div class="mt-2 flex flex-wrap gap-3"><label class="rush-choice"><input type="radio" name="preferred_channel" value="private_message" @checked(old('preferred_channel', 'private_message') === 'private_message')> Private message</label><label class="rush-choice"><input type="radio" name="preferred_channel" value="sms" @checked(old('preferred_channel') === 'sms')> SMS</label></div></fieldset>
         </section>
 
         <section data-step-panel="2" hidden>

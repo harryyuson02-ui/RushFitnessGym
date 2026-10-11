@@ -13,7 +13,10 @@ class StoreMembershipApplicationRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()?->isMember() && $this->user()->member === null;
+        $user = $this->user();
+
+        return $user?->isMember()
+            && ($user->member === null || $user->member->canApplyForMembership());
     }
 
     /**
@@ -31,7 +34,6 @@ class StoreMembershipApplicationRequest extends FormRequest
             'phone_country_code' => ['required', Rule::in(['+63'])],
             'phone' => ['bail', 'required', 'string', 'regex:/\A09[0-9]{9}\z/'],
             'address' => ['required', Rule::in(['Tagum City', 'Davao City', 'Panabo City', 'Samal City', 'Maco', 'Mabini', 'Pantukan'])],
-            'preferred_channel' => ['required', Rule::in(['private_message', 'sms'])],
             'availability_days' => ['required', 'array', 'min:1'],
             'availability_days.*' => ['required', 'distinct', Rule::in(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'])],
             'availability_starts_at' => ['required', 'date_format:H:i'],

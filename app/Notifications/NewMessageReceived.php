@@ -31,7 +31,9 @@ class NewMessageReceived extends Notification
     {
         return [
             'title' => 'New message from '.$this->message->sender->name,
-            'body' => str($this->message->body)->limit(80)->toString(),
+            'body' => filled($this->message->body)
+                ? str($this->message->body)->limit(80)->toString()
+                : 'Sent a photo.',
             'url' => route('chat.show', $this->message->sender),
             'sender_id' => $this->message->sender_id,
         ];

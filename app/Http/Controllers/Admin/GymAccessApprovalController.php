@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ReviewApprovalRequest;
+use App\Models\CoachAssignmentRequest;
 use App\Models\Subscription;
 use App\Notifications\ApprovalDecision;
-use Illuminate\Database\Eloquent\Builder;
+use App\Notifications\ApprovalRequested;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class GymAccessApprovalController extends Controller
 {
@@ -18,9 +20,8 @@ class GymAccessApprovalController extends Controller
 
         $subscription = DB::transaction(function () use ($subscription, $decision): Subscription {
             $lockedSubscription = Subscription::query()
-                ->with('member.user')
+                ->with(['member.user', 'requestedCoach.user'])
                 ->whereKey($subscription)
-                ->whereHas('member', fn (Builder $member): Builder => $member->whereNull('coach_id'))
                 ->lockForUpdate()
                 ->firstOrFail();
 
@@ -29,6 +30,7 @@ class GymAccessApprovalController extends Controller
             $approved = $decision === 'approved';
             $lockedSubscription->update($approved ? [
                 'status' => 'active',
+                'access_token' => (string) Str::uuid(),
                 'paid_at' => now(),
                 'qr_issued_at' => now(),
             ] : [
@@ -39,16 +41,34 @@ class GymAccessApprovalController extends Controller
                 'paid_at' => $approved ? now() : null,
             ]);
 
+            if ($approved && $lockedSubscription->requested_coach_id !== null && $lockedSubscription->member->coach_id === null) {
+                CoachAssignmentRequest::firstOrCreate([
+                    'member_id' => $lockedSubscription->member_id,
+                    'status' => 'pending',
+                ], [
+                    'coach_id' => $lockedSubscription->requested_coach_id,
+                ]);
+            }
+
             return $lockedSubscription;
         });
 
         $subscription->member->user?->notify(new ApprovalDecision(
             'Membership application '.($decision === 'approved' ? 'approved' : 'declined'),
             $decision === 'approved'
-                ? 'An administrator approved your gym-only membership. Your member access is now active.'
-                : 'An administrator declined your gym-only membership application. Contact the gym for assistance.',
+                ? 'Your membership is active. Your personalized QR access key is ready to view and download from Overview.'
+                : 'An administrator declined your membership application. Contact the gym for assistance.',
+            $decision === 'approved' ? 'member.dashboard' : null,
         ));
 
-        return redirect()->route('admin.approvals.index')->with('success', 'Gym-only membership application '.$decision.'.');
+        if ($decision === 'approved' && $subscription->requestedCoach?->user !== null) {
+            $subscription->requestedCoach->user->notify(new ApprovalRequested(
+                'New training request',
+                $subscription->member->full_name.' requested you as their coach.',
+                'coach.approvals.index',
+            ));
+        }
+
+        return redirect()->route('admin.approvals.index')->with('success', 'Membership application '.$decision.'.');
     }
 }

@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateMemberRequest;
 use App\Models\Coach;
 use App\Models\Member;
 use App\Models\MembershipPlan;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,16 +24,21 @@ class MemberController extends Controller
     public function index(Request $request): View
     {
         $validated = $request->validate([
-            'search' => ['nullable', 'string', 'max:100'],
+            'member_search' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', 'in:all,pending,active,expiring,inactive'],
+            'user_search' => ['nullable', 'string', 'max:100'],
+            'user_role' => ['nullable', 'in:all,admin,coach,user'],
         ]);
-        $search = trim($validated['search'] ?? '');
+        $memberSearch = trim($validated['member_search'] ?? '');
         $status = $validated['status'] ?? 'all';
+        $userSearch = trim($validated['user_search'] ?? '');
+        $userRole = $validated['user_role'] ?? 'all';
         $totalMembers = Member::count();
+        $totalUsers = User::count();
         $members = Member::query()
             ->with(['coach', 'currentSubscription.plan'])
-            ->when($search !== '', function (Builder $query) use ($search): void {
-                foreach (preg_split('/\s+/', $search) as $term) {
+            ->when($memberSearch !== '', function (Builder $query) use ($memberSearch): void {
+                foreach (preg_split('/\s+/', $memberSearch) as $term) {
                     $query->where(function (Builder $names) use ($term): void {
                         $names->where('first_name', 'like', '%'.$term.'%')
                             ->orWhere('last_name', 'like', '%'.$term.'%')
@@ -60,10 +66,28 @@ class MemberController extends Controller
             })
             ->orderBy('last_name')
             ->orderBy('first_name')
-            ->paginate(12)
+            ->paginate(12, ['*'], 'members_page')
             ->withQueryString();
+        $users = User::query()
+            ->with(['coach:id,user_id,specialty', 'member:id,user_id,member_code'])
+            ->when($userSearch !== '', fn (Builder $query): Builder => $query->where(function (Builder $matches) use ($userSearch): void {
+                $matches->where('name', 'like', '%'.$userSearch.'%')
+                    ->orWhere('email', 'like', '%'.$userSearch.'%');
+            }))
+            ->when($userRole !== 'all', fn (Builder $query): Builder => $query->where('role', $userRole))
+            ->orderBy('name')
+            ->get();
 
-        return view('admin.members.index', compact('members', 'search', 'status', 'totalMembers'));
+        return view('admin.members.index', compact(
+            'members',
+            'memberSearch',
+            'status',
+            'totalMembers',
+            'users',
+            'userSearch',
+            'userRole',
+            'totalUsers',
+        ));
     }
 
     /**
@@ -88,8 +112,9 @@ class MemberController extends Controller
             $member = Member::create([
                 ...collect($validated)->only([
                     'first_name', 'last_name', 'birth_date', 'gender', 'phone', 'email',
-                    'address', 'preferred_channel', 'coach_id',
+                    'address', 'coach_id',
                 ])->all(),
+                'preferred_channel' => 'private_message',
                 'member_code' => $this->nextMemberCode(),
             ]);
 
@@ -130,13 +155,12 @@ class MemberController extends Controller
         $message = $subscription
             ? "Welcome to Rush Fitness Gym, {$member->first_name}! Your {$subscription->plan->name} access QR is ready: ".route('access-key.image', $subscription->access_token)
             : null;
-        $phone = preg_replace('/\D+/', '', $member->phone) ?? '';
 
         return view('admin.members.show', [
             'member' => $member,
             'subscription' => $subscription,
             'plans' => MembershipPlan::where('is_active', true)->orderBy('price')->get(),
-            'messageUrl' => $message === null ? null : ($member->preferred_channel === 'private_message' && $member->user
+            'messageUrl' => $message === null ? null : ($member->user
                 ? route('chat.show', $member->user)
                 : 'sms:'.$member->phone.'?body='.rawurlencode($message)),
         ]);

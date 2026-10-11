@@ -8,7 +8,6 @@ use App\Models\MembershipPlan;
 use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
-use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Hash;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -24,7 +23,7 @@ class AdminDirectoryTest extends TestCase
         $inactive = Member::factory()->create(['first_name' => 'Daniel', 'last_name' => 'Reyes']);
 
         $this->actingAs(User::factory()->create())
-            ->get(route('admin.members.index', ['search' => 'Daniel Reyes', 'status' => 'active']))
+            ->get(route('admin.members.index', ['member_search' => 'Daniel Reyes', 'status' => 'active']))
             ->assertSee($member->member_code)
             ->assertDontSee($inactive->member_code);
     }
@@ -75,9 +74,9 @@ class AdminDirectoryTest extends TestCase
         Member::factory()->count(13)->sequence(fn ($sequence) => ['member_code' => 'RFG-FILTER-'.$sequence->index])->create();
 
         $this->actingAs(User::factory()->create())
-            ->get(route('admin.members.index', ['search' => 'RFG-FILTER', 'status' => 'inactive']))
+            ->get(route('admin.members.index', ['member_search' => 'RFG-FILTER', 'status' => 'inactive']))
             ->assertViewHas('members', fn ($members) => $members->total() === 13 && $members->count() === 12
-                && str_contains($members->nextPageUrl(), 'search=RFG-FILTER')
+                && str_contains($members->nextPageUrl(), 'member_search=RFG-FILTER')
                 && str_contains($members->nextPageUrl(), 'status=inactive'));
     }
 
@@ -106,6 +105,8 @@ class AdminDirectoryTest extends TestCase
 
         $this->actingAs($admin)->get(route('admin.coaches.create'))
             ->assertSee('Weekly schedule calendar')
+            ->assertSee('name="password"', false)
+            ->assertSee('name="password_confirmation"', false)
             ->assertSee('type="time"', false)
             ->assertDontSee('textarea name="schedule"', false);
     }
@@ -126,6 +127,8 @@ class AdminDirectoryTest extends TestCase
             'name' => 'Calendar Coach',
             'phone' => '09170000000',
             'email' => 'calendar-coach@example.test',
+            'password' => 'coach-password123',
+            'password_confirmation' => 'coach-password123',
             'specialty' => Coach::SPECIALTIES[0],
             'is_available' => '1',
             'availability' => $this->weeklyAvailability([1, 3]),
@@ -140,7 +143,7 @@ class AdminDirectoryTest extends TestCase
         $this->assertDatabaseHas('availability_slots', ['coach_id' => $coach->id, 'day_of_week' => 3]);
     }
 
-    public function test_new_coach_credentials_are_shown_once_and_allow_access_to_assigned_clients(): void
+    public function test_admin_chosen_coach_password_allows_access_to_assigned_clients(): void
     {
         $admin = User::factory()->create();
 
@@ -152,22 +155,15 @@ class AdminDirectoryTest extends TestCase
             'is_available' => '1',
             'availability' => $this->weeklyAvailability([1]),
             'role' => 'admin',
-            'password' => 'attacker-chosen-password',
+            'password' => 'chosen-coach-password123',
+            'password_confirmation' => 'chosen-coach-password123',
         ]);
 
-        $response->assertRedirect(route('admin.coaches.index'))->assertSessionHas('coach_credentials');
-        $credentials = session('coach_credentials');
-        $password = Crypt::decryptString($credentials['password']);
+        $response->assertRedirect(route('admin.coaches.index'))->assertSessionMissing('coach_credentials');
         $coach = Coach::where('email', 'new-coach@example.test')->firstOrFail();
         $this->assertDatabaseHas('users', ['id' => $coach->user_id, 'email' => 'new-coach@example.test', 'role' => 'coach']);
-        $this->assertTrue(Hash::check($password, $coach->user->password));
-        $this->assertFalse(Hash::check('attacker-chosen-password', $coach->user->password));
+        $this->assertTrue(Hash::check('chosen-coach-password123', $coach->user->password));
         $this->assertAuthenticatedAs($admin);
-
-        $this->get(route('admin.coaches.index'))
-            ->assertSeeText('new-coach@example.test')
-            ->assertSeeText($password);
-        $this->get(route('admin.coaches.index'))->assertDontSeeText($password);
 
         $assignedClient = Member::factory()->for($coach)->create();
         Subscription::factory()->for($assignedClient)->create();
@@ -175,7 +171,7 @@ class AdminDirectoryTest extends TestCase
         Subscription::factory()->for($otherClient)->create();
         $this->post(route('logout'));
 
-        $this->post(route('login.submit'), ['email' => $credentials['email'], 'password' => $password])
+        $this->post(route('login.submit'), ['email' => 'new-coach@example.test', 'password' => 'chosen-coach-password123'])
             ->assertRedirect(route('coach.dashboard'));
         $this->assertAuthenticatedAs($coach->user);
         $this->get(route('coach.dashboard'))->assertOk();
@@ -184,12 +180,28 @@ class AdminDirectoryTest extends TestCase
         $this->get(route('admin.coaches.index'))->assertForbidden();
 
         $this->put(route('profile.update'), [
-            'current_password' => $password,
+            'current_password' => 'chosen-coach-password123',
             'password' => 'my-new-coach-password123',
             'password_confirmation' => 'my-new-coach-password123',
         ])->assertSessionHasNoErrors();
         $this->assertTrue(Hash::check('my-new-coach-password123', $coach->user->fresh()->password));
-        $this->assertFalse(Hash::check($password, $coach->user->fresh()->password));
+        $this->assertFalse(Hash::check('chosen-coach-password123', $coach->user->fresh()->password));
+    }
+
+    public function test_coach_creation_requires_matching_password_confirmation(): void
+    {
+        $this->actingAs(User::factory()->create())->post(route('admin.coaches.store'), [
+            'name' => 'Password Coach',
+            'phone' => '09170000000',
+            'email' => 'password-coach@example.test',
+            'password' => 'chosen-coach-password123',
+            'password_confirmation' => 'different-password123',
+            'specialty' => Coach::SPECIALTIES[0],
+            'availability' => $this->weeklyAvailability([1]),
+        ])->assertSessionHasErrors('password');
+
+        $this->assertDatabaseMissing('users', ['email' => 'password-coach@example.test']);
+        $this->assertDatabaseMissing('coaches', ['email' => 'password-coach@example.test']);
     }
 
     public function test_coach_creation_rejects_an_email_already_used_for_login(): void
@@ -339,8 +351,8 @@ class AdminDirectoryTest extends TestCase
     {
         $this->actingAs(User::factory()->create())
             ->from(route('admin.members.index'))
-            ->get(route('admin.members.index', ['search' => ['bad'], 'status' => 'unknown']))
-            ->assertSessionHasErrors(['search', 'status']);
+            ->get(route('admin.members.index', ['member_search' => ['bad'], 'status' => 'unknown']))
+            ->assertSessionHasErrors(['member_search', 'status']);
     }
 
     /**

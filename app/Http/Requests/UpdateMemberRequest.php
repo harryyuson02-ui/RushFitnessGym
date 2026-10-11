@@ -31,7 +31,6 @@ class UpdateMemberRequest extends FormRequest
             'phone' => ['required', 'string', 'max:30'],
             'email' => ['nullable', 'email', 'max:255', Rule::unique('members')->ignore($this->route('member'))],
             'address' => ['nullable', 'string', 'max:1000'],
-            'preferred_channel' => ['required', Rule::in(['sms', 'private_message'])],
             'coach_id' => ['required', Rule::exists('coaches', 'id')->where('is_available', true)],
         ];
     }

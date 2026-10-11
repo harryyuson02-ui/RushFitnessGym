@@ -31,7 +31,6 @@ class StoreMemberRequest extends FormRequest
             'phone' => ['required', 'string', 'max:30'],
             'email' => ['nullable', 'email', 'max:255', Rule::unique('members')],
             'address' => ['nullable', 'string', 'max:1000'],
-            'preferred_channel' => ['required', Rule::in(['sms', 'private_message'])],
             'coach_id' => ['required', Rule::exists('coaches', 'id')->where('is_available', true)],
             'membership_plan_id' => ['required', Rule::exists('membership_plans', 'id')->where('is_active', true)],
             'starts_at' => ['required', 'date'],

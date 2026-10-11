@@ -29,17 +29,25 @@
 
     <div class="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
         @forelse ($plans as $plan)
-            @php($isCurrentPlan = $currentSubscription?->membership_plan_id === $plan->id)
-            <article class="rush-card relative flex min-h-72 flex-col overflow-hidden p-6 {{ $isCurrentPlan ? 'border-lime-400 ring-2 ring-lime-100' : '' }}">
-                @if ($isCurrentPlan)
-                    <span class="rush-badge absolute right-5 top-5 bg-lime-100 text-lime-900">Current plan</span>
-                @endif
-                <p class="text-xs font-bold uppercase tracking-[0.14em] text-zinc-500">{{ $plan->duration_days }} days</p>
-                <h3 class="mt-3 pr-24 text-2xl font-bold tracking-tight text-zinc-950">{{ $plan->name }}</h3>
-                <p class="mt-4 text-3xl font-black tracking-tight text-zinc-950">₱{{ number_format($plan->price, 2) }}</p>
-                <p class="mt-4 flex-1 text-sm leading-6 text-zinc-600">{{ $plan->description }}</p>
-                <div class="mt-6 border-t border-zinc-100 pt-4">
-                    <p class="text-sm font-semibold text-zinc-700">Gym access for the full {{ $plan->duration_days }}-day period</p>
+            @php
+                $isCurrentPlan = $currentSubscription?->membership_plan_id === $plan->id;
+                $image = $plan->duration_days <= 30 ? 'monthly' : ($plan->duration_days <= 90 ? 'quarterly' : 'annual');
+            @endphp
+            <article class="rush-card flex min-h-72 flex-col overflow-hidden {{ $isCurrentPlan ? 'border-lime-400 ring-2 ring-lime-100' : '' }}">
+                <div class="relative">
+                    <img src="{{ asset('images/plans/'.$image.'.jpg') }}" alt="" width="960" height="640" loading="lazy" class="h-32 w-full object-cover sm:h-44">
+                    @if ($isCurrentPlan)
+                        <span class="rush-badge absolute right-3 top-3 bg-lime-100 text-lime-900 shadow-sm">Current plan</span>
+                    @endif
+                </div>
+                <div class="flex flex-1 flex-col p-6">
+                    <p class="text-xs font-bold uppercase tracking-[0.14em] text-zinc-500">{{ $plan->duration_days }} days</p>
+                    <h3 class="mt-3 text-2xl font-bold tracking-tight text-zinc-950">{{ $plan->name }}</h3>
+                    <p class="mt-4 text-3xl font-black tracking-tight text-zinc-950">₱{{ number_format($plan->price, 2) }}</p>
+                    <p class="mt-4 flex-1 text-sm leading-6 text-zinc-600">{{ $plan->description }}</p>
+                    <div class="mt-6 border-t border-zinc-100 pt-4">
+                        <p class="text-sm font-semibold text-zinc-700">Gym access for the full {{ $plan->duration_days }}-day period</p>
+                    </div>
                 </div>
             </article>
         @empty
@@ -57,7 +65,7 @@
             <h2 class="text-xl font-bold">Ready to join?</h2>
             <p class="mt-1 text-sm leading-6 text-zinc-400">Choose your plan while completing the membership application.</p>
         </div>
-        <a href="{{ route('member.application.create') }}" class="rush-primary mt-5 w-full sm:mt-0 sm:w-auto">Start application</a>
+        <a href="{{ route('member.dashboard') }}" class="rush-primary mt-5 w-full sm:mt-0 sm:w-auto">Start application</a>
     </section>
 @endif
 @endsection

@@ -28,6 +28,7 @@ class StoreCoachRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
             'phone' => ['bail', 'required', 'string', 'regex:/\A09[0-9]{9}\z/'],
             'specialty' => ['required', Rule::in(Coach::SPECIALTIES)],
             'is_available' => ['nullable', 'boolean'],

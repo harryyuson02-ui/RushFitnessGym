@@ -12,7 +12,11 @@ class ApprovalDecision extends Notification
     /**
      * Create a new notification instance.
      */
-    public function __construct(public string $title, public string $body) {}
+    public function __construct(
+        public string $title,
+        public string $body,
+        public ?string $routeName = null,
+    ) {}
 
     /**
      * Get the notification's delivery channels.
@@ -31,9 +35,10 @@ class ApprovalDecision extends Notification
      */
     public function toArray(object $notifiable): array
     {
-        return [
+        return array_filter([
             'title' => $this->title,
             'body' => $this->body,
-        ];
+            'route_name' => $this->routeName,
+        ], fn (mixed $value): bool => $value !== null);
     }
 }

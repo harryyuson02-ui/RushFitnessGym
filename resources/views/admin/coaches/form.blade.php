@@ -14,8 +14,12 @@
         <span id="coach-phone-error" class="text-xs font-normal text-red-600" aria-live="polite" hidden></span>
         <x-input-error :messages="$errors->get('phone')" />
     </label>
-    <label class="rush-label">Email<input class="rush-input" type="email" name="email" value="{{ old('email', $coach?->email) }}" @required(! $coach)>@if (! $coach)<span class="text-xs font-normal text-zinc-500">Used to sign in. A temporary password will be generated when you save.</span>@endif<x-input-error :messages="$errors->get('email')" /></label>
+    <label class="rush-label">Email<input class="rush-input" type="email" name="email" value="{{ old('email', $coach?->email) }}" @required(! $coach)>@if (! $coach)<span class="text-xs font-normal text-zinc-500">Used by the coach to sign in.</span>@endif<x-input-error :messages="$errors->get('email')" /></label>
     <label class="rush-label">Specialty<select class="rush-input" name="specialty" required><option value="">Select specialty</option>@foreach(\App\Models\Coach::SPECIALTIES as $specialty)<option value="{{ $specialty }}" @selected(old('specialty', $coach?->specialty) === $specialty)>{{ $specialty }}</option>@endforeach</select><x-input-error :messages="$errors->get('specialty')" /></label>
+    @if (! $coach)
+        <label class="rush-label">Password<input class="rush-input" type="password" name="password" autocomplete="new-password" required><span class="text-xs font-normal text-zinc-500">Use at least 8 characters.</span><x-input-error :messages="$errors->get('password')" /></label>
+        <label class="rush-label">Confirm password<input class="rush-input" type="password" name="password_confirmation" autocomplete="new-password" required></label>
+    @endif
 </div>
 
 <fieldset class="mt-7">

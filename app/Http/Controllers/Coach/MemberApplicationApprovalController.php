@@ -3,10 +3,9 @@
 namespace App\Http\Controllers\Coach;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\ReviewApprovalRequest;
-use App\Models\Subscription;
+use App\Http\Requests\ReviewCoachAssignmentRequest;
+use App\Models\CoachAssignmentRequest;
 use App\Notifications\ApprovalDecision;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 
@@ -15,45 +14,42 @@ class MemberApplicationApprovalController extends Controller
     /**
      * Handle the incoming request.
      */
-    public function __invoke(ReviewApprovalRequest $request, string $subscription): RedirectResponse
+    public function __invoke(ReviewCoachAssignmentRequest $request, string $assignmentRequest): RedirectResponse
     {
         $coach = $request->user()->coach;
         abort_unless($coach, 403);
         $decision = $request->validated('decision');
 
-        $subscription = DB::transaction(function () use ($coach, $subscription, $decision): Subscription {
-            $lockedSubscription = Subscription::query()
+        $assignment = DB::transaction(function () use ($coach, $assignmentRequest, $decision): CoachAssignmentRequest {
+            $lockedAssignment = CoachAssignmentRequest::query()
                 ->with('member.user')
-                ->whereKey($subscription)
-                ->whereHas('member', fn (Builder $query): Builder => $query->whereBelongsTo($coach))
+                ->whereKey($assignmentRequest)
+                ->whereBelongsTo($coach)
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            abort_unless($lockedSubscription->status === 'pending', 409, 'This application has already been reviewed.');
+            abort_unless($lockedAssignment->status === 'pending', 409, 'This training request has already been reviewed.');
 
-            $approved = $decision === 'approved';
-            $lockedSubscription->update($approved ? [
-                'status' => 'active',
-                'paid_at' => now(),
-                'qr_issued_at' => now(),
-            ] : [
-                'status' => 'declined',
-            ]);
-            $lockedSubscription->transactions()->update([
-                'status' => $approved ? 'paid' : 'rejected',
-                'paid_at' => $approved ? now() : null,
+            $accepted = $decision === 'accepted';
+            $lockedAssignment->update([
+                'status' => $decision,
+                'reviewed_at' => now(),
             ]);
 
-            return $lockedSubscription;
+            if ($accepted) {
+                $lockedAssignment->member->update(['coach_id' => $coach->id]);
+            }
+
+            return $lockedAssignment;
         });
 
-        $subscription->member->user?->notify(new ApprovalDecision(
-            'Membership application '.($decision === 'approved' ? 'approved' : 'declined'),
-            $decision === 'approved'
-                ? 'Your selected coach approved your membership. Your member access is now active.'
-                : 'Your selected coach declined your membership application. Open chat to contact your coach for assistance.',
+        $assignment->member->user?->notify(new ApprovalDecision(
+            'Training request '.$decision,
+            $decision === 'accepted'
+                ? 'Your coach accepted your training request. You can now view your coach records and chat.'
+                : 'The coach declined your training request. You may select another available coach.',
         ));
 
-        return redirect()->route('coach.approvals.index')->with('success', 'Member application '.$decision.'.');
+        return redirect()->route('coach.approvals.index')->with('success', 'Training request '.$decision.'.');
     }
 }

@@ -3,9 +3,15 @@
 namespace Database\Seeders;
 
 use App\Models\Coach;
+use App\Models\CoachAssignmentRequest;
+use App\Models\CoachClientRecord;
+use App\Models\Member;
+use App\Models\MembershipPlan;
+use App\Models\ScheduleEvent;
+use App\Models\Subscription;
+use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
@@ -19,29 +25,115 @@ class DatabaseSeeder extends Seeder
             MembershipPlanSeeder::class,
         ]);
 
-        User::updateOrCreate(['email' => 'admin@rushfitness.test'], [
+        $admin = User::updateOrCreate(['email' => 'admin@rushfitness.test'], [
             'name' => 'Rush Fitness Admin',
-            'password' => Hash::make('password'),
+            'password' => 'password',
             'role' => 'admin',
             'preferred_channel' => 'private_message',
         ]);
 
-        $coachUser = User::updateOrCreate(['email' => 'coach@rushfitness.test'], [
-            'name' => 'Alex Rivera',
-            'password' => Hash::make('password'),
-            'role' => 'coach',
-            'phone' => '09171234567',
-            'preferred_channel' => 'private_message',
-        ]);
+        $coaches = [
+            ['name' => 'Alex Rivera', 'email' => 'coach1@rushfitness.test', 'phone' => '09171234567'],
+            ['name' => 'Mika Santos', 'email' => 'coach2@rushfitness.test', 'phone' => '09181234567'],
+            ['name' => 'Jordan Cruz', 'email' => 'coach3@rushfitness.test', 'phone' => '09191234567'],
+            ['name' => 'Taylor Reyes', 'email' => 'coach4@rushfitness.test', 'phone' => '09161234567'],
+        ];
 
-        User::updateOrCreate(['email' => 'member@rushfitness.test'], [
-            'name' => 'Rush Fitness Member',
-            'password' => Hash::make('password'),
-            'role' => 'user',
-            'phone' => '09170000001',
-            'preferred_channel' => 'private_message',
-        ]);
+        foreach ($coaches as $coach) {
+            $user = User::updateOrCreate(['email' => $coach['email']], [
+                'name' => $coach['name'],
+                'password' => 'password',
+                'role' => 'coach',
+                'phone' => $coach['phone'],
+                'preferred_channel' => 'private_message',
+            ]);
 
-        Coach::where('name', 'Alex Rivera')->update(['user_id' => $coachUser->id]);
+            Coach::where('name', $coach['name'])->update([
+                'user_id' => $user->id,
+                'email' => $coach['email'],
+            ]);
+        }
+
+        $members = [
+            ['code' => 'RFG-1001', 'first_name' => 'Jamie', 'last_name' => 'Santos', 'email' => 'member1@rushfitness.test', 'phone' => '09170000001', 'coach' => 'Alex Rivera', 'goal' => 'Build muscle', 'plan' => 'Monthly', 'token' => '00000000-0000-4000-8000-000000001001'],
+            ['code' => 'RFG-1002', 'first_name' => 'Bianca', 'last_name' => 'Reyes', 'email' => 'member2@rushfitness.test', 'phone' => '09170000002', 'coach' => 'Mika Santos', 'goal' => 'Weight loss', 'plan' => 'Quarterly', 'token' => '00000000-0000-4000-8000-000000001002'],
+            ['code' => 'RFG-1003', 'first_name' => 'Carlo', 'last_name' => 'Mendoza', 'email' => 'member3@rushfitness.test', 'phone' => '09170000003', 'coach' => 'Jordan Cruz', 'goal' => 'Improve strength', 'plan' => 'Annual', 'token' => '00000000-0000-4000-8000-000000001003'],
+            ['code' => 'RFG-1004', 'first_name' => 'Dana', 'last_name' => 'Garcia', 'email' => 'member4@rushfitness.test', 'phone' => '09170000004', 'coach' => 'Taylor Reyes', 'goal' => 'General fitness', 'plan' => 'Monthly', 'token' => '00000000-0000-4000-8000-000000001004'],
+            ['code' => 'RFG-1005', 'first_name' => 'Eli', 'last_name' => 'Navarro', 'email' => 'member5@rushfitness.test', 'phone' => '09170000005', 'coach' => 'Alex Rivera', 'goal' => 'Build muscle', 'plan' => 'Quarterly', 'token' => '00000000-0000-4000-8000-000000001005'],
+        ];
+
+        foreach ($members as $index => $member) {
+            $user = User::updateOrCreate(['email' => $member['email']], [
+                'name' => $member['first_name'].' '.$member['last_name'],
+                'password' => 'password',
+                'role' => 'user',
+                'phone' => $member['phone'],
+                'preferred_channel' => 'private_message',
+            ]);
+
+            $memberProfile = Member::updateOrCreate(['member_code' => $member['code']], [
+                'user_id' => $user->id,
+                'first_name' => $member['first_name'],
+                'last_name' => $member['last_name'],
+                'phone' => $member['phone'],
+                'email' => $member['email'],
+                'preferred_channel' => 'private_message',
+                'fitness_goal' => $member['goal'],
+                'availability_days' => ['Monday', 'Wednesday', 'Friday'],
+                'availability_starts_at' => '17:00',
+                'availability_ends_at' => '19:00',
+                'coach_id' => Coach::where('name', $member['coach'])->value('id'),
+            ]);
+
+            $plan = MembershipPlan::where('name', $member['plan'])->firstOrFail();
+            CoachAssignmentRequest::updateOrCreate([
+                'member_id' => $memberProfile->id,
+                'coach_id' => $memberProfile->coach_id,
+            ], [
+                'status' => 'accepted',
+                'reviewed_at' => now()->subDays(5),
+            ]);
+            $subscription = Subscription::updateOrCreate(['access_token' => $member['token']], [
+                'member_id' => $memberProfile->id,
+                'membership_plan_id' => $plan->id,
+                'starts_at' => today()->subDays(5),
+                'expires_at' => today()->addDays($plan->duration_days - 6),
+                'status' => 'active',
+                'paid_at' => now()->subDays(5),
+                'qr_issued_at' => now()->subDays(5),
+                'reminder_sent_at' => null,
+            ]);
+
+            Transaction::updateOrCreate(['reference' => 'SEED-'.$member['code']], [
+                'member_id' => $memberProfile->id,
+                'subscription_id' => $subscription->id,
+                'membership_plan_id' => $plan->id,
+                'amount' => $plan->price,
+                'payment_method' => 'gcash',
+                'status' => 'paid',
+                'paid_at' => now()->subDays(5),
+            ]);
+
+            ScheduleEvent::updateOrCreate([
+                'member_id' => $memberProfile->id,
+                'title' => 'Personal training session',
+            ], [
+                'type' => 'session',
+                'starts_at' => now()->addDays($index + 1)->setTime(9 + $index, 0),
+                'ends_at' => now()->addDays($index + 1)->setTime(10 + $index, 0),
+                'coach_id' => $memberProfile->coach_id,
+                'created_by' => $admin->id,
+                'notes' => 'Seeded development session.',
+            ]);
+
+            CoachClientRecord::updateOrCreate([
+                'member_id' => $memberProfile->id,
+                'title' => 'Monthly progress review',
+            ], [
+                'coach_id' => $memberProfile->coach_id,
+                'notes' => 'Reviewed current goals, training consistency, and the next milestone for this member.',
+                'recorded_at' => today()->subDays($index),
+            ]);
+        }
     }
 }

@@ -63,6 +63,53 @@
     }
     .rush-menu > summary { list-style: none; }
     .rush-menu > summary::-webkit-details-marker { display: none; }
+
+    :is(
+        button:not(:disabled):not([data-password-toggle]),
+        a.rush-primary,
+        a.rush-secondary,
+        a.rush-dark-button,
+        a[class*='rounded'],
+        .rush-menu > summary,
+        .rush-choice,
+        .rush-choice-card
+    ) {
+        transition-duration: 200ms;
+        transition-property: color, background-color, border-color, box-shadow, transform;
+        transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+        will-change: transform;
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+        :is(
+            button:not(:disabled):not([data-password-toggle]),
+            a.rush-primary,
+            a.rush-secondary,
+            a.rush-dark-button,
+            a[class*='rounded'],
+            .rush-menu > summary,
+            .rush-choice,
+            .rush-choice-card
+        ):hover {
+            box-shadow: 0 10px 22px -10px rgb(24 24 27 / 45%);
+            transform: translateY(-2px);
+        }
+    }
+
+    :is(
+        button:not(:disabled):not([data-password-toggle]),
+        a.rush-primary,
+        a.rush-secondary,
+        a.rush-dark-button,
+        a[class*='rounded'],
+        .rush-menu > summary,
+        .rush-choice,
+        .rush-choice-card
+    ):active {
+        box-shadow: 0 3px 8px -5px rgb(24 24 27 / 45%);
+        transform: translateY(0);
+        transition-duration: 80ms;
+    }
 }
 
 @layer base {
@@ -77,5 +124,12 @@
     :focus-visible {
         outline: 2px solid var(--color-lime-500);
         outline-offset: 2px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        :is(button, a, summary, .rush-choice, .rush-choice-card) {
+            scroll-behavior: auto;
+            transition-duration: 0.01ms !important;
+        }
     }
 }

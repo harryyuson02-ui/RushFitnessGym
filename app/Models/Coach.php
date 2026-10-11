@@ -52,6 +52,11 @@ class Coach extends Model
         return $this->hasMany(CoachClientRecord::class);
     }
 
+    public function assignmentRequests(): HasMany
+    {
+        return $this->hasMany(CoachAssignmentRequest::class);
+    }
+
     /**
      * @param  array<int, array{day_of_week: int, starts_at: string, ends_at: string}>  $slots
      */

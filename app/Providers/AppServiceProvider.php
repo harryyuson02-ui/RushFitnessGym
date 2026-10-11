@@ -52,7 +52,11 @@ class AppServiceProvider extends ServiceProvider
 
         View::composer('layouts.portal', function ($view): void {
             $user = auth()->user();
-            $view->with('portalNotifications', $user?->unreadNotifications()->latest()->limit(6)->get() ?? collect());
+            $notifications = $user?->exists
+                ? $user->unreadNotifications()->latest()->limit(6)->get()
+                : collect();
+
+            $view->with('portalNotifications', $notifications);
         });
     }
 }

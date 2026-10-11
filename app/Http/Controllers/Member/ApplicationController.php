@@ -21,30 +21,39 @@ class ApplicationController extends Controller
     {
         $validated = $request->validated();
         $plan = MembershipPlan::findOrFail($validated['membership_plan_id']);
-        $coach = isset($validated['coach_id']) ? Coach::with('user')->findOrFail($validated['coach_id']) : null;
+        $requestedCoach = isset($validated['coach_id']) ? Coach::findOrFail($validated['coach_id']) : null;
         $receiptPath = $request->file('receipt')?->store('receipts');
         $phone = $validated['phone_country_code'].' '.$validated['phone'];
 
-        $subscription = DB::transaction(function () use ($request, $validated, $plan, $receiptPath, $phone): Subscription {
+        $subscription = DB::transaction(function () use ($request, $validated, $plan, $requestedCoach, $receiptPath, $phone): Subscription {
             [$firstName, $lastName] = [$validated['first_name'], $validated['last_name']];
-            $member = Member::create([
-                'user_id' => $request->user()->id,
-                'member_code' => $this->nextMemberCode(),
+            $profile = [
                 'first_name' => $firstName,
                 'last_name' => $lastName,
                 'gender' => $validated['gender'],
                 'phone' => $phone,
                 'email' => $request->user()->email,
                 'address' => $validated['address'],
-                'preferred_channel' => $validated['preferred_channel'],
+                'preferred_channel' => 'private_message',
                 'fitness_goal' => $validated['fitness_goal'],
                 'availability_days' => $validated['availability_days'],
                 'availability_starts_at' => $validated['availability_starts_at'],
                 'availability_ends_at' => $validated['availability_ends_at'],
-                'coach_id' => $validated['coach_id'] ?? null,
-            ]);
+            ];
+            $member = $request->user()->member;
+
+            if ($member) {
+                $member->update($profile);
+            } else {
+                $member = Member::create([
+                    ...$profile,
+                    'user_id' => $request->user()->id,
+                    'member_code' => $this->nextMemberCode(),
+                ]);
+            }
             $subscription = $member->subscriptions()->create([
                 'membership_plan_id' => $plan->id,
+                'requested_coach_id' => $requestedCoach?->id,
                 'starts_at' => today(),
                 'expires_at' => today()->addDays($plan->duration_days - 1),
                 'status' => 'pending',
@@ -66,28 +75,20 @@ class ApplicationController extends Controller
                 'phone' => $phone,
                 'gender' => $validated['gender'],
                 'address' => $validated['address'],
-                'preferred_channel' => $validated['preferred_channel'],
+                'preferred_channel' => 'private_message',
             ]);
 
             return $subscription;
         });
 
-        if ($coach !== null) {
-            $coach->user?->notify(new ApprovalRequested(
+        Notification::send(
+            User::where('role', 'admin')->get(),
+            new ApprovalRequested(
                 'New membership application',
-                $subscription->member->full_name.' selected you as their coach and is waiting for approval.',
-                'coach.approvals.index',
-            ));
-        } else {
-            Notification::send(
-                User::where('role', 'admin')->get(),
-                new ApprovalRequested(
-                    'New gym-only membership application',
-                    $subscription->member->full_name.' requested gym access without a coach and is waiting for approval.',
-                    'admin.approvals.index',
-                ),
-            );
-        }
+                $subscription->member->full_name.' submitted a membership and payment for review.',
+                'admin.approvals.index',
+            ),
+        );
 
         return redirect()->route('member.dashboard')->with('success', 'Membership application submitted for review.');
     }

@@ -45,9 +45,24 @@ class Member extends Model
         return $this->hasMany(Subscription::class);
     }
 
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(Attendance::class);
+    }
+
     public function currentSubscription(): HasOne
     {
         return $this->hasOne(Subscription::class)->ofMany('id', 'max');
+    }
+
+    public function canApplyForMembership(): bool
+    {
+        return ! $this->subscriptions()
+            ->where(function (Builder $query): void {
+                $query->where('status', 'pending')
+                    ->orWhere(fn (Builder $subscription): Builder => $subscription->active());
+            })
+            ->exists();
     }
 
     public function transactions(): HasMany
@@ -63,6 +78,16 @@ class Member extends Model
     public function coachRecords(): HasMany
     {
         return $this->hasMany(CoachClientRecord::class);
+    }
+
+    public function coachAssignmentRequests(): HasMany
+    {
+        return $this->hasMany(CoachAssignmentRequest::class);
+    }
+
+    public function pendingCoachAssignment(): HasOne
+    {
+        return $this->hasOne(CoachAssignmentRequest::class)->where('status', 'pending')->latestOfMany();
     }
 
     #[Scope]

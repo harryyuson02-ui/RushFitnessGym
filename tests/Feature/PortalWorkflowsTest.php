@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Coach;
+use App\Models\CoachClientRecord;
 use App\Models\Member;
 use App\Models\MembershipPlan;
 use App\Models\Message;
@@ -48,8 +49,21 @@ class PortalWorkflowsTest extends TestCase
                 ->assertOk()
                 ->assertSee($portalLabel)
                 ->assertSee('Change password')
+                ->assertSee('data-menu-close', false)
+                ->assertDontSee('⌄')
                 ->assertDontSee('Account settings');
         }
+    }
+
+    public function test_coach_navigation_uses_the_overview_calendar_without_a_separate_calendar_item(): void
+    {
+        $coachUser = User::factory()->coach()->create();
+        Coach::factory()->for($coachUser, 'user')->create();
+
+        $this->actingAs($coachUser)->get(route('coach.dashboard'))
+            ->assertOk()
+            ->assertSeeText('Schedule calendar')
+            ->assertDontSee('>Calendar<', false);
     }
 
     public function test_authenticated_user_can_change_their_password(): void
@@ -90,9 +104,14 @@ class PortalWorkflowsTest extends TestCase
         Storage::fake('local');
         Notification::fake([ApprovalRequested::class]);
         $coachUser = User::factory()->coach()->create();
+        $admin = User::factory()->create();
         $user = User::factory()->member()->create();
         $coach = Coach::factory()->for($coachUser)->create(['specialty' => 'Strength']);
         $plan = MembershipPlan::factory()->create(['duration_days' => 30, 'price' => 1200]);
+
+        $this->actingAs($user)->get(route('member.dashboard'))
+            ->assertOk()
+            ->assertDontSee('Preferred message channel');
 
         $response = $this->actingAs($user)->post(route('member.application.store'), [
             'fitness_goal' => 'Improve strength',
@@ -102,7 +121,6 @@ class PortalWorkflowsTest extends TestCase
             'phone_country_code' => '+63',
             'phone' => '09171234567',
             'address' => 'Tagum City',
-            'preferred_channel' => 'private_message',
             'availability_days' => ['Monday', 'Wednesday', 'Friday'],
             'availability_starts_at' => '17:00',
             'availability_ends_at' => '19:00',
@@ -119,13 +137,17 @@ class PortalWorkflowsTest extends TestCase
         $transaction = Transaction::whereBelongsTo($member)->firstOrFail();
 
         $this->assertSame('pending', $member->currentSubscription->status);
+        $this->assertNull($member->coach_id);
+        $this->assertSame($coach->id, $member->currentSubscription->requested_coach_id);
         $this->assertSame('Improve strength', $member->fitness_goal);
         $this->assertSame(['Monday', 'Wednesday', 'Friday'], $member->availability_days);
         $this->assertSame('+63 09171234567', $member->phone);
+        $this->assertSame('private_message', $member->preferred_channel);
         $this->assertNull($member->birth_date);
         $this->assertSame('GCASH-12345', $transaction->reference);
         Storage::disk('local')->assertExists($transaction->receipt_path);
-        Notification::assertSentTo($coachUser, ApprovalRequested::class, fn (ApprovalRequested $notification): bool => $notification->routeName === 'coach.approvals.index');
+        Notification::assertNotSentTo($coachUser, ApprovalRequested::class);
+        Notification::assertSentTo($admin, ApprovalRequested::class, fn (ApprovalRequested $notification): bool => $notification->routeName === 'admin.approvals.index');
     }
 
     public function test_member_can_submit_a_gym_only_application_without_a_coach(): void
@@ -165,6 +187,38 @@ class PortalWorkflowsTest extends TestCase
             ->assertSee($member->full_name)
             ->assertSee($member->member_code)
             ->assertSee('Pending');
+    }
+
+    public function test_member_can_reapply_after_a_declined_application_without_creating_another_profile(): void
+    {
+        $user = User::factory()->member()->create();
+        $member = Member::factory()->for($user)->create();
+        $plan = MembershipPlan::factory()->create(['duration_days' => 30]);
+        Subscription::factory()->for($member)->for($plan, 'plan')->create(['status' => 'declined']);
+
+        $this->actingAs($user)->get(route('member.dashboard'))
+            ->assertOk()
+            ->assertSee('Submit another membership application');
+
+        $this->actingAs($user)->post(route('member.application.store'), [
+            'fitness_goal' => 'Build muscle',
+            'first_name' => 'Marco',
+            'last_name' => 'Santos',
+            'gender' => 'Male',
+            'phone_country_code' => '+63',
+            'phone' => '09171234567',
+            'address' => 'Tagum City',
+            'preferred_channel' => 'private_message',
+            'availability_days' => ['Monday'],
+            'availability_starts_at' => '17:00',
+            'availability_ends_at' => '19:00',
+            'membership_plan_id' => $plan->id,
+            'payment_method' => 'cash',
+        ])->assertRedirect(route('member.dashboard'))->assertSessionHasNoErrors();
+
+        $this->assertSame(1, Member::whereBelongsTo($user)->count());
+        $this->assertSame(2, $member->subscriptions()->count());
+        $this->assertSame('pending', $member->currentSubscription()->firstOrFail()->status);
     }
 
     public function test_member_cannot_select_a_coach_without_a_portal_account(): void
@@ -323,16 +377,55 @@ class PortalWorkflowsTest extends TestCase
         $this->assertDatabaseMissing('coach_client_records', ['member_id' => $pendingMember->id]);
     }
 
-    #[DataProvider('messageRolePairs')]
-    public function test_allowed_role_pair_can_exchange_private_messages(string $senderRole, string $recipientRole): void
+    public function test_member_can_only_view_their_complete_read_only_coach_record_history(): void
+    {
+        $user = User::factory()->member()->create();
+        $member = Member::factory()->for($user)->create();
+        $formerCoach = Coach::factory()->create(['name' => 'Former Coach']);
+        $currentCoach = Coach::factory()->create(['name' => 'Current Coach']);
+        $member->update(['coach_id' => $currentCoach->id]);
+        CoachClientRecord::factory()->for($member)->for($formerCoach)->create([
+            'title' => 'Initial assessment',
+            'notes' => 'Baseline mobility assessment.',
+            'recorded_at' => today()->subMonth(),
+        ]);
+        CoachClientRecord::factory()->for($member)->for($currentCoach)->create([
+            'title' => 'Strength milestone',
+            'notes' => 'Completed the target working set.',
+            'recorded_at' => today(),
+        ]);
+        $otherRecord = CoachClientRecord::factory()->create([
+            'title' => 'Another member private record',
+            'notes' => 'Must remain private.',
+        ]);
+
+        $this->actingAs($user)->get(route('member.records.index'))
+            ->assertOk()
+            ->assertSeeText('My coach records')
+            ->assertSeeText('Initial assessment')
+            ->assertSeeText('Former Coach')
+            ->assertSeeText('Strength milestone')
+            ->assertSeeText('Current Coach')
+            ->assertDontSeeText($otherRecord->title)
+            ->assertDontSeeText('Edit record')
+            ->assertDontSeeText('Delete record');
+    }
+
+    public function test_member_records_page_requires_a_member_account(): void
+    {
+        $this->get('/member/records')->assertRedirect(route('login'));
+
+        $this->actingAs(User::factory()->coach()->create())
+            ->get('/member/records')
+            ->assertForbidden();
+    }
+
+    #[DataProvider('adminMessageRolePairs')]
+    public function test_admin_can_exchange_private_messages_with_every_role(string $recipientRole): void
     {
         Notification::fake([NewMessageReceived::class]);
-        $sender = User::factory()->create(['role' => $senderRole]);
+        $sender = User::factory()->create(['role' => 'admin']);
         $recipient = User::factory()->create(['role' => $recipientRole]);
-
-        if ($sender->isCoach()) {
-            Message::factory()->for($recipient, 'sender')->for($sender, 'recipient')->create();
-        }
 
         $this->actingAs($sender)->get(route('chat.index'))->assertSee($recipient->name);
 
@@ -347,46 +440,145 @@ class PortalWorkflowsTest extends TestCase
         Notification::assertSentTo($recipient, NewMessageReceived::class);
     }
 
-    /** @return array<string, array{string, string}> */
-    public static function messageRolePairs(): array
+    /** @return array<string, array{string}> */
+    public static function adminMessageRolePairs(): array
     {
         return [
-            'member to coach' => ['user', 'coach'],
-            'member to admin' => ['user', 'admin'],
-            'coach to member' => ['coach', 'user'],
-            'coach to coach' => ['coach', 'coach'],
-            'admin to coach' => ['admin', 'coach'],
-            'admin to member' => ['admin', 'user'],
+            'admin' => ['admin'],
+            'coach' => ['coach'],
+            'member' => ['user'],
         ];
     }
 
-    public function test_member_chat_only_lists_staff_and_blocks_other_members(): void
+    public function test_chat_contacts_and_conversation_messages_have_independent_searches(): void
+    {
+        $admin = User::factory()->create();
+        $matchingContact = User::factory()->member()->create(['name' => 'Searchable Member', 'email' => 'searchable@example.test']);
+        $otherContact = User::factory()->coach()->create(['name' => 'Hidden Contact']);
+        Message::factory()->for($admin, 'sender')->for($matchingContact, 'recipient')->create(['body' => 'Your progress photo is ready.']);
+        Message::factory()->for($matchingContact, 'sender')->for($admin, 'recipient')->create(['body' => 'Unrelated schedule question.']);
+
+        $this->actingAs($admin)->get(route('chat.index', ['contact_search' => 'searchable@example.test']))
+            ->assertOk()
+            ->assertSeeText($matchingContact->name)
+            ->assertDontSeeText($otherContact->name)
+            ->assertSee('name="contact_search"', false);
+
+        $this->get(route('chat.show', [
+            'contact' => $matchingContact,
+            'message_search' => 'progress photo',
+        ]))
+            ->assertOk()
+            ->assertSeeText('Your progress photo is ready.')
+            ->assertDontSeeText('Unrelated schedule question.')
+            ->assertSeeText('Search conversation')
+            ->assertSeeText('View sent media/photos');
+    }
+
+    public function test_chat_photo_messages_are_stored_privately_and_only_visible_to_participants(): void
+    {
+        Storage::fake('local');
+        Notification::fake([NewMessageReceived::class]);
+        $sender = User::factory()->create();
+        $recipient = User::factory()->member()->create();
+        $outsider = User::factory()->member()->create();
+
+        $this->actingAs($sender)->post(route('chat.store', $recipient), [
+            'body' => '',
+            'attachment' => UploadedFile::fake()->create('progress-photo.jpg', 100, 'image/jpeg'),
+        ])->assertRedirect(route('chat.show', $recipient))->assertSessionHasNoErrors();
+
+        $message = Message::whereBelongsTo($sender, 'sender')->whereBelongsTo($recipient, 'recipient')->firstOrFail();
+
+        $this->assertNull($message->body);
+        $this->assertSame('image', $message->attachment_type);
+        $this->assertSame('progress-photo.jpg', $message->attachment_name);
+        Storage::disk('local')->assertExists($message->attachment_path);
+        Notification::assertSentTo($recipient, NewMessageReceived::class);
+
+        $this->get(route('chat.show', $recipient))
+            ->assertOk()
+            ->assertSee(route('chat.attachment', $message), false)
+            ->assertSee('data-chat-photo', false)
+            ->assertSee('data-chat-camera', false)
+            ->assertSee('data-chat-camera-dialog', false)
+            ->assertSee('data-chat-camera-capture', false)
+            ->assertDontSee('data-chat-voice', false)
+            ->assertSeeText('Exit conversation');
+        $this->get(route('chat.attachment', $message))->assertOk()->assertHeader('X-Content-Type-Options', 'nosniff');
+        $this->actingAs($recipient)->get(route('chat.attachment', $message))->assertOk();
+        $this->actingAs($outsider)->get(route('chat.attachment', $message))->assertForbidden();
+
+        $this->actingAs($recipient)->post(route('chat.store', $sender), [
+            'attachment' => UploadedFile::fake()->createWithContent(
+                'removed-voice-option.wav',
+                base64_decode('UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA='),
+            ),
+        ])->assertSessionHasErrors('attachment');
+    }
+
+    public function test_coaches_and_members_share_the_complete_chat_toolset(): void
+    {
+        $coachUser = User::factory()->coach()->create();
+        $coach = Coach::factory()->for($coachUser, 'user')->create();
+        $memberUser = User::factory()->member()->create();
+        Member::factory()->for($memberUser, 'user')->for($coach)->create();
+
+        foreach ([[$coachUser, $memberUser], [$memberUser, $coachUser]] as [$viewer, $contact]) {
+            $this->actingAs($viewer)->get(route('chat.show', $contact))
+                ->assertOk()
+                ->assertSee('name="contact_search"', false)
+                ->assertSee('name="message_search"', false)
+                ->assertSeeText('Search conversation')
+                ->assertSeeText('View sent media/photos')
+                ->assertSeeText('Exit conversation')
+                ->assertSee('data-chat-photo', false)
+                ->assertSee('data-chat-camera', false)
+                ->assertSee('data-chat-camera-dialog', false)
+                ->assertSee('data-chat-camera-capture', false)
+                ->assertSee('data-menu-close', false)
+                ->assertSee('data-chat-panel-close', false)
+                ->assertDontSee('data-chat-voice', false);
+        }
+    }
+
+    public function test_member_chat_only_allows_admins_and_their_assigned_coach(): void
     {
         Notification::fake([NewMessageReceived::class]);
         $member = User::factory()->member()->create(['name' => 'Current Member']);
         $otherMember = User::factory()->member()->create(['name' => 'Other Member']);
-        $coach = User::factory()->coach()->create(['name' => 'Coach Contact']);
+        $coach = User::factory()->coach()->create(['name' => 'Assigned Coach']);
+        $coachProfile = Coach::factory()->for($coach, 'user')->create();
+        Member::factory()->for($member, 'user')->for($coachProfile)->create();
+        $otherCoach = User::factory()->coach()->create(['name' => 'Other Coach']);
+        Coach::factory()->for($otherCoach, 'user')->create();
         $admin = User::factory()->create(['name' => 'Admin Contact']);
 
         $this->actingAs($member)->get(route('chat.index'))
             ->assertOk()
             ->assertSeeText($coach->name)
             ->assertSeeText($admin->name)
+            ->assertDontSeeText($otherCoach->name)
             ->assertDontSeeText($otherMember->name);
 
-        $this->actingAs($member)->get(route('chat.show', $otherMember))->assertForbidden();
-        $this->actingAs($member)->post(route('chat.store', $otherMember), [
-            'body' => 'This message must not be sent.',
-        ])->assertForbidden();
+        foreach ([$coach, $admin] as $contact) {
+            $this->get(route('chat.show', $contact))->assertOk();
+            $this->post(route('chat.store', $contact), ['body' => 'Allowed member message'])
+                ->assertRedirect(route('chat.show', $contact));
+        }
 
-        $this->assertDatabaseMissing('messages', [
-            'sender_id' => $member->id,
-            'recipient_id' => $otherMember->id,
-        ]);
-        Notification::assertNothingSent();
+        foreach ([$otherCoach, $otherMember] as $contact) {
+            $this->get(route('chat.show', $contact))->assertForbidden();
+            $this->post(route('chat.store', $contact), [
+                'body' => 'This message must not be sent.',
+            ])->assertForbidden();
+        }
+
+        $this->assertDatabaseMissing('messages', ['body' => 'This message must not be sent.']);
+        Notification::assertNotSentTo([$otherCoach, $otherMember], NewMessageReceived::class);
     }
 
-    public function test_coach_chat_only_allows_assigned_clients_admins_and_direct_senders(): void
+    public function test_coach_chat_only_allows_assigned_clients_and_admins(): void
     {
         Notification::fake([NewMessageReceived::class]);
         $coachUser = User::factory()->coach()->create();
@@ -394,8 +586,8 @@ class PortalWorkflowsTest extends TestCase
         $assignedClient = User::factory()->member()->create(['name' => 'Assigned Chat Client']);
         Member::factory()->for($assignedClient, 'user')->for($coach)->create();
         $admin = User::factory()->create(['name' => 'Chat Administrator']);
-        $directSender = User::factory()->member()->create(['name' => 'Direct Chat Sender']);
-        $incomingMessage = Message::factory()->for($directSender, 'sender')->for($coachUser, 'recipient')->create();
+        $directSender = User::factory()->member()->create(['name' => 'Unassigned Direct Sender']);
+        Message::factory()->for($directSender, 'sender')->for($coachUser, 'recipient')->create();
         $unrelatedMember = User::factory()->member()->create(['name' => 'Unrelated Chat Member']);
         Member::factory()->for($unrelatedMember, 'user')->create();
         $unrelatedCoach = User::factory()->coach()->create(['name' => 'Unrelated Chat Coach']);
@@ -405,11 +597,11 @@ class PortalWorkflowsTest extends TestCase
         $this->actingAs($coachUser)->get(route('chat.index'))
             ->assertSeeText($assignedClient->name)
             ->assertSeeText($admin->name)
-            ->assertSeeText($directSender->name)
+            ->assertDontSeeText($directSender->name)
             ->assertDontSeeText($unrelatedMember->name)
             ->assertDontSeeText($unrelatedCoach->name);
 
-        foreach ([$assignedClient, $admin, $directSender] as $contact) {
+        foreach ([$assignedClient, $admin] as $contact) {
             $this->get(route('chat.show', $contact))->assertOk();
             $this->post(route('chat.store', $contact), ['body' => 'Allowed coach message'])
                 ->assertRedirect(route('chat.show', $contact));
@@ -421,10 +613,7 @@ class PortalWorkflowsTest extends TestCase
             Notification::assertSentTo($contact, NewMessageReceived::class);
         }
 
-        $this->assertNotNull($incomingMessage->fresh()->read_at);
-        $this->get(route('chat.show', $directSender))->assertSeeText($incomingMessage->body);
-
-        foreach ([$unrelatedMember, $unrelatedCoach, $coachUser] as $contact) {
+        foreach ([$directSender, $unrelatedMember, $unrelatedCoach, $coachUser] as $contact) {
             $this->get(route('chat.show', $contact))->assertForbidden();
             $this->post(route('chat.store', $contact), ['body' => 'Blocked coach message'])->assertForbidden();
         }
@@ -433,18 +622,21 @@ class PortalWorkflowsTest extends TestCase
         Notification::assertNotSentTo([$unrelatedMember, $unrelatedCoach, $coachUser], NewMessageReceived::class);
     }
 
-    public function test_coach_without_roster_record_can_reply_to_direct_senders_but_cannot_access_unassigned_clients(): void
+    public function test_coach_without_roster_record_can_only_chat_with_admins(): void
     {
         $coachUser = User::factory()->coach()->create();
+        $admin = User::factory()->create(['name' => 'Available Administrator']);
         $unassignedUser = User::factory()->member()->create(['name' => 'Unassigned Chat Client']);
         Member::factory()->for($unassignedUser, 'user')->create(['coach_id' => null]);
         $directSender = User::factory()->coach()->create(['name' => 'Incoming Coach Contact']);
         Message::factory()->for($directSender, 'sender')->for($coachUser, 'recipient')->create(['read_at' => now()]);
 
         $this->actingAs($coachUser)->get(route('chat.index'))
-            ->assertSeeText($directSender->name)
+            ->assertSeeText($admin->name)
+            ->assertDontSeeText($directSender->name)
             ->assertDontSeeText($unassignedUser->name);
-        $this->get(route('chat.show', $directSender))->assertOk();
+        $this->get(route('chat.show', $admin))->assertOk();
+        $this->get(route('chat.show', $directSender))->assertForbidden();
         $this->get(route('chat.show', $unassignedUser))->assertForbidden();
         $this->post(route('chat.store', $unassignedUser), ['body' => 'Not allowed'])->assertForbidden();
         $this->assertDatabaseMissing('messages', ['sender_id' => $coachUser->id]);
@@ -465,26 +657,27 @@ class PortalWorkflowsTest extends TestCase
         $this->assertDatabaseMissing('messages', ['body' => 'After reassignment']);
     }
 
-    public function test_admin_sidebar_omits_users_and_calendar_and_calendar_route_is_forbidden(): void
+    public function test_admin_sidebar_links_members_but_omits_users_and_forbidden_calendar(): void
     {
         $admin = User::factory()->create();
 
         $this->actingAs($admin)->get(route('admin.dashboard'))
-            ->assertDontSee('Users')
+            ->assertSee(route('admin.members.index'))
+            ->assertDontSee('>Users<', false)
             ->assertDontSee('Calendar');
         $this->actingAs($admin)->get(route('calendar.index'))->assertForbidden();
     }
 
-    public function test_database_seeder_creates_one_account_for_each_portal_role(): void
+    public function test_database_seeder_creates_the_development_portal_accounts(): void
     {
         $this->seed();
 
-        $this->assertDatabaseCount('users', 3);
+        $this->assertDatabaseCount('users', 10);
         $this->assertDatabaseHas('users', ['email' => 'admin@rushfitness.test', 'role' => 'admin']);
-        $this->assertDatabaseHas('users', ['email' => 'coach@rushfitness.test', 'role' => 'coach']);
-        $this->assertDatabaseHas('users', ['email' => 'member@rushfitness.test', 'role' => 'user']);
+        $this->assertDatabaseHas('users', ['email' => 'coach1@rushfitness.test', 'role' => 'coach']);
+        $this->assertDatabaseHas('users', ['email' => 'member1@rushfitness.test', 'role' => 'user']);
         $this->assertSame(
-            User::where('email', 'coach@rushfitness.test')->value('id'),
+            User::where('email', 'coach1@rushfitness.test')->value('id'),
             Coach::where('name', 'Alex Rivera')->value('user_id'),
         );
     }
@@ -501,26 +694,21 @@ class PortalWorkflowsTest extends TestCase
             ->assertDontSee($otherTransaction->reference);
     }
 
-    public function test_admin_can_create_and_link_coach_portal_account(): void
+    public function test_system_users_are_searchable_below_members_without_account_creation_controls(): void
     {
         $admin = User::factory()->create();
-        $coach = Coach::factory()->create();
+        $matchingUser = User::factory()->coach()->create(['name' => 'Jordan System User', 'email' => 'jordan@example.test']);
+        $otherUser = User::factory()->member()->create(['name' => 'Other Account']);
 
-        $response = $this->actingAs($admin)->post(route('admin.users.store'), [
-            'name' => 'Coach Jordan',
-            'email' => 'jordan@example.test',
-            'password' => 'secure-password',
-            'password_confirmation' => 'secure-password',
-            'role' => 'coach',
-            'phone' => '09170000000',
-            'preferred_channel' => 'private_message',
-            'coach_id' => $coach->id,
-        ]);
+        $this->actingAs($admin)->get(route('admin.members.index', ['user_search' => 'jordan@example.test']))
+            ->assertOk()
+            ->assertSee('System users')
+            ->assertSee($matchingUser->email)
+            ->assertDontSee($otherUser->email)
+            ->assertSee(route('admin.users.edit', $matchingUser))
+            ->assertDontSee('Add account');
 
-        $account = User::where('email', 'jordan@example.test')->firstOrFail();
-
-        $response->assertRedirect(route('admin.users.edit', $account));
-        $this->assertSame($account->id, $coach->fresh()->user_id);
-        $this->assertSame('coach', $account->role);
+        $this->get('/admin/users/create')->assertStatus(405);
+        $this->post('/admin/users')->assertNotFound();
     }
 }

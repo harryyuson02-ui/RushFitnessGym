@@ -1,18 +1,6 @@
 @extends('layouts.portal')
 @section('title', 'Coaches')
 @section('content')
-@if ($credentials)
-    <section class="rush-card mb-6 border border-lime-300 p-5" aria-labelledby="coach-credentials-title">
-        <h2 id="coach-credentials-title" class="text-lg font-bold">Coach login credentials</h2>
-        <p class="mt-2 text-sm text-zinc-600">Share these credentials securely with the coach. The temporary password is shown only once.</p>
-        <dl class="mt-4 grid gap-3">
-            <div><dt class="text-sm font-semibold">Login email</dt><dd class="break-all">{{ $credentials['email'] }}</dd></div>
-            <div><dt class="text-sm font-semibold">Temporary password</dt><dd class="break-all font-mono">{{ $temporaryPassword }}</dd></div>
-        </dl>
-        <p class="mt-4 text-sm text-zinc-600">Sign in to open the coach dashboard, then choose Change password from the account menu.</p>
-        <a href="{{ route('login') }}" class="mt-3 inline-block text-sm font-bold text-lime-700">Coach sign-in page</a>
-    </section>
-@endif
 <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
     <x-page-heading eyebrow="Available roster" title="Coaches" description="Your coaching team and schedules." />
     <a href="{{ route('admin.coaches.create') }}" class="rush-primary">+ Add coach</a>

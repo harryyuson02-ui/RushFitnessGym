@@ -10,11 +10,8 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -23,7 +20,7 @@ class CoachController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(Request $request): Response
+    public function index(Request $request): View
     {
         $validated = $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
@@ -41,11 +38,7 @@ class CoachController extends Controller
             ->when($specialty !== '', fn (Builder $query): Builder => $query->where('specialty', $specialty))
             ->orderBy('name')->paginate(12)->withQueryString();
 
-        $credentials = $request->session()->pull('coach_credentials');
-        $temporaryPassword = $credentials ? Crypt::decryptString($credentials['password']) : null;
-
-        return response()->view('admin.coaches.index', compact('coaches', 'search', 'specialty', 'credentials', 'temporaryPassword'))
-            ->header('Cache-Control', 'no-store, private');
+        return view('admin.coaches.index', compact('coaches', 'search', 'specialty'));
     }
 
     /**
@@ -63,18 +56,17 @@ class CoachController extends Controller
     {
         $validated = $request->validated();
         $availabilitySlots = $this->availabilitySlots($validated['availability']);
-        $temporaryPassword = Str::password(20, spaces: false);
 
-        DB::transaction(function () use ($validated, $availabilitySlots, $request, $temporaryPassword): void {
+        DB::transaction(function () use ($validated, $availabilitySlots, $request): void {
             $user = User::create([
                 'name' => $validated['name'],
                 'email' => $validated['email'],
-                'password' => $temporaryPassword,
+                'password' => $validated['password'],
                 'role' => 'coach',
                 'phone' => $validated['phone'],
             ]);
             $coach = Coach::create([
-                ...Arr::except($validated, ['availability']),
+                ...Arr::except($validated, ['availability', 'password', 'password_confirmation']),
                 'user_id' => $user->id,
                 'schedule' => Coach::scheduleSummary($availabilitySlots),
                 'is_available' => $request->boolean('is_available'),
@@ -84,11 +76,7 @@ class CoachController extends Controller
         });
 
         return redirect()->route('admin.coaches.index')
-            ->with('success', 'Coach added to the roster with a portal account.')
-            ->with('coach_credentials', [
-                'email' => $validated['email'],
-                'password' => Crypt::encryptString($temporaryPassword),
-            ]);
+            ->with('success', 'Coach added to the roster with a portal account.');
     }
 
     /**

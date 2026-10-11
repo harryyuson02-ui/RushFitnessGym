@@ -13,7 +13,6 @@
         <h2 class="text-xl font-extrabold">Member profile</h2>
         <dl class="mt-5 grid gap-4 text-sm">
             <div><dt class="text-zinc-500">Assigned coach</dt><dd class="mt-1 font-bold">{{ $member->coach?->name ?? 'Unassigned' }}</dd><dd class="text-zinc-500">{{ $member->coach?->specialty }}</dd></div>
-            <div><dt class="text-zinc-500">Preferred message channel</dt><dd class="mt-1 font-bold uppercase">{{ $member->preferred_channel }}</dd></div>
             <div><dt class="text-zinc-500">Address</dt><dd class="mt-1 font-bold">{{ $member->address ?: 'Not provided' }}</dd></div>
         </dl>
     </section>
@@ -23,7 +22,7 @@
             <div class="flex flex-col gap-6 sm:flex-row sm:items-center">
                 <div class="rounded-lg bg-white p-3"><img class="size-48" src="{{ route('access-key.image', $subscription->access_token) }}" alt="QR access key for {{ $member->full_name }}"></div>
                 <div class="min-w-0 flex-1"><p class="text-xs font-bold uppercase tracking-[.16em] text-lime-400">Official access key</p><h2 class="mt-2 text-2xl font-bold tracking-tight">{{ $subscription->plan->name }}</h2><p class="mt-2 text-sm text-zinc-400">Valid {{ $subscription->starts_at->format('M j, Y') }} – {{ $subscription->expires_at->format('M j, Y') }}</p><p class="mt-1 text-sm text-zinc-400">Coach: {{ $member->coach?->name ?? 'Unassigned' }}</p>
-                    <div class="mt-5 flex flex-wrap gap-2"><a href="{{ $messageUrl }}" class="inline-flex min-h-12 items-center rounded-xl bg-lime-400 px-5 font-extrabold text-zinc-950" target="_blank" rel="noopener">Send via {{ ucfirst($member->preferred_channel) }}</a><a href="{{ route('access-key.image', $subscription->access_token) }}" download="{{ $member->member_code }}-qr.svg" class="inline-flex min-h-12 items-center rounded-xl border border-zinc-700 px-5 font-bold">Download QR</a></div>
+                    <div class="mt-5 flex flex-wrap gap-2"><a href="{{ $messageUrl }}" class="inline-flex min-h-12 items-center rounded-xl bg-lime-400 px-5 font-extrabold text-zinc-950" target="_blank" rel="noopener">Send access details</a><a href="{{ route('access-key.image', $subscription->access_token) }}" download="{{ $member->member_code }}-qr.svg" class="inline-flex min-h-12 items-center rounded-xl border border-zinc-700 px-5 font-bold">Download QR</a></div>
                 </div>
             </div>
         </section>

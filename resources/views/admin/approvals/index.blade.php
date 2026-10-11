@@ -1,26 +1,27 @@
 @extends('layouts.portal')
 @section('title', 'Approval Reviews')
 @section('content')
-<x-page-heading eyebrow="Member and coach operations" title="Approval reviews" description="Review gym-only membership applications and coach availability changes. Applications with a coach are reviewed by their selected coach." />
+<x-page-heading eyebrow="Member and coach operations" title="Approval reviews" description="Verify every membership payment before gym access is activated. Coaches review training assignments separately." />
 
 <div class="mt-7 grid gap-7">
     <section>
-        <div class="flex items-center justify-between gap-4"><div><h2 class="text-xl font-bold">Gym-only membership applications</h2><p class="mt-1 text-sm text-zinc-500">Review members requesting independent gym access without a coach.</p></div><span class="rush-badge bg-amber-100 text-amber-900">{{ $memberApplications->count() }} pending</span></div>
+        <div class="flex items-center justify-between gap-4"><div><h2 class="text-xl font-bold">Membership applications</h2><p class="mt-1 text-sm text-zinc-500">Verify the selected plan and payment for every applicant.</p></div><span class="rush-badge bg-amber-100 text-amber-900">{{ $memberApplications->count() }} pending</span></div>
         <div class="mt-4 grid gap-4">
             @forelse($memberApplications as $application)
                 @php($transaction = $application->transactions->first())
                 <article class="rush-card p-5 sm:p-6">
                     <div class="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-                        <div class="grid min-w-0 gap-4 sm:grid-cols-3 lg:gap-8">
+                        <div class="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
                             <div><p class="text-xs font-bold uppercase tracking-wider text-zinc-400">Member</p><p class="mt-1 break-words font-bold">{{ $application->member->full_name }}</p><p class="text-sm text-zinc-500">{{ $application->member->member_code }}</p></div>
                             <div><p class="text-xs font-bold uppercase tracking-wider text-zinc-400">Plan</p><p class="mt-1 font-semibold">{{ $application->plan->name }}</p><p class="text-sm text-zinc-500">₱{{ number_format($application->plan->price, 2) }}</p></div>
                             <div><p class="text-xs font-bold uppercase tracking-wider text-zinc-400">Payment</p><p class="mt-1 font-semibold uppercase">{{ $transaction?->payment_method ?? '—' }}</p><p class="break-words text-sm text-zinc-500">{{ $transaction?->reference ? 'Ref: '.$transaction->reference : 'No reference' }}</p></div>
+                            <div><p class="text-xs font-bold uppercase tracking-wider text-zinc-400">Requested coach</p><p class="mt-1 font-semibold">{{ $application->requestedCoach?->name ?? 'No coach requested' }}</p></div>
                         </div>
                         <form method="POST" action="{{ route('admin.approvals.members.update', $application) }}" class="grid shrink-0 gap-2 sm:grid-cols-2">@csrf @method('PATCH')<button class="rush-secondary text-red-700" type="submit" name="decision" value="declined">Decline</button><button class="rush-primary" type="submit" name="decision" value="approved">Approve member</button></form>
                     </div>
                 </article>
             @empty
-                <div class="rush-card p-7 text-center text-sm text-zinc-500">No gym-only membership applications are waiting for review.</div>
+                <div class="rush-card p-7 text-center text-sm text-zinc-500">No membership applications are waiting for review.</div>
             @endforelse
         </div>
     </section>

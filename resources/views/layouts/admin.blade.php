@@ -70,9 +70,8 @@
                             </a>
                         @endisset
                         <details class="rush-menu relative">
-                            <summary class="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-1" aria-label="Administrator account menu">
+                            <summary class="flex min-h-11 cursor-pointer items-center rounded-lg px-1" aria-label="Administrator account menu">
                                 <span class="flex size-9 items-center justify-center rounded-full bg-lime-100 text-sm font-bold text-lime-900">{{ mb_strtoupper(mb_substr(auth()->user()->name, 0, 1)) }}</span>
-                                <span aria-hidden="true" class="text-zinc-500">⌄</span>
                             </summary>
                             <div class="absolute right-0 top-full mt-2 w-56 rounded-xl border border-zinc-200 bg-white p-3 shadow-lg">
                                 <p class="break-words px-2 py-2 text-sm font-semibold">{{ auth()->user()->name }}</p>

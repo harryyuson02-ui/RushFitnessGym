@@ -16,7 +16,7 @@ class Subscription extends Model
     use HasFactory;
 
     protected $fillable = [
-        'member_id', 'membership_plan_id', 'starts_at', 'expires_at', 'status',
+        'member_id', 'membership_plan_id', 'requested_coach_id', 'starts_at', 'expires_at', 'status',
         'access_token', 'paid_at', 'qr_issued_at', 'reminder_sent_at',
     ];
 
@@ -47,8 +47,18 @@ class Subscription extends Model
         return $this->belongsTo(MembershipPlan::class, 'membership_plan_id');
     }
 
+    public function requestedCoach(): BelongsTo
+    {
+        return $this->belongsTo(Coach::class, 'requested_coach_id');
+    }
+
     public function transactions(): HasMany
     {
         return $this->hasMany(Transaction::class);
+    }
+
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(Attendance::class);
     }
 }

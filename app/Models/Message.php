@@ -12,7 +12,17 @@ class Message extends Model
     /** @use HasFactory<MessageFactory> */
     use HasFactory;
 
-    protected $fillable = ['sender_id', 'recipient_id', 'body', 'read_at'];
+    protected $fillable = [
+        'sender_id',
+        'recipient_id',
+        'body',
+        'attachment_path',
+        'attachment_type',
+        'attachment_mime',
+        'attachment_name',
+        'attachment_size',
+        'read_at',
+    ];
 
     protected function casts(): array
     {

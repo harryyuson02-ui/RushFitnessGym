@@ -42,6 +42,22 @@ class NotificationControllerTest extends TestCase
         $this->assertNotNull($notification->fresh()->read_at);
     }
 
+    public function test_clicking_membership_qr_notification_opens_member_overview_and_marks_it_read(): void
+    {
+        $recipient = User::factory()->member()->create();
+        $recipient->notify(new ApprovalDecision(
+            'Membership approved',
+            'Your QR is ready.',
+            'member.dashboard',
+        ));
+        $notification = $recipient->unreadNotifications()->firstOrFail();
+
+        $response = $this->actingAs($recipient)->patch(route('notifications.update', $notification));
+
+        $response->assertRedirect(route('member.dashboard'));
+        $this->assertNotNull($notification->fresh()->read_at);
+    }
+
     public function test_clicking_approval_request_opens_coach_approval_queue_and_marks_it_read(): void
     {
         $coach = User::factory()->coach()->create();

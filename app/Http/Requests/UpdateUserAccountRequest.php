@@ -29,7 +29,6 @@ class UpdateUserAccountRequest extends FormRequest
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
             'role' => ['required', Rule::in(['admin', 'coach', 'user'])],
             'phone' => ['nullable', 'string', 'max:30'],
-            'preferred_channel' => ['required', Rule::in(['private_message', 'sms'])],
             'coach_id' => ['nullable', 'exists:coaches,id'],
             'member_id' => ['nullable', 'exists:members,id'],
         ];
