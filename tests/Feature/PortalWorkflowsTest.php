@@ -49,6 +49,8 @@ class PortalWorkflowsTest extends TestCase
                 ->assertOk()
                 ->assertSee($portalLabel)
                 ->assertSee('Change password')
+                ->assertSee('Log out')
+                ->assertSee('action="'.route('logout').'"', false)
                 ->assertSee('data-menu-close', false)
                 ->assertDontSee('⌄')
                 ->assertDontSee('Account settings');

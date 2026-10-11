@@ -434,10 +434,12 @@ document.querySelectorAll('[data-attendance-scanner]').forEach((scanner) => {
     const closeButton = scanner.querySelector('[data-attendance-scan-close]');
     const cancelButton = scanner.querySelector('[data-attendance-scan-cancel]');
     const fileInput = scanner.querySelector('[data-attendance-scan-file]');
+    const cameraFallbackButton = scanner.querySelector('[data-attendance-camera-fallback]');
     const message = scanner.querySelector('[data-attendance-scan-message]');
     const status = scanner.querySelector('[data-attendance-status]');
     let controls = null;
     let isSubmitting = false;
+    const canUseLiveCamera = window.isSecureContext && Boolean(navigator.mediaDevices?.getUserMedia);
 
     const stopScanner = () => {
         controls?.stop();
@@ -492,18 +494,27 @@ document.querySelectorAll('[data-attendance-scanner]').forEach((scanner) => {
 
     const startCamera = async () => {
         message.textContent = 'Starting camera…';
+        cameraFallbackButton.hidden = true;
 
-        if (!navigator.mediaDevices?.getUserMedia) {
-            message.textContent = 'Live camera access is not supported here. Use the device camera or select a saved QR image below.';
+        if (!canUseLiveCamera) {
+            cameraFallbackButton.hidden = false;
+            message.textContent = 'Opening the phone camera. Photograph the QR and it will be checked automatically.';
             return;
         }
 
         try {
             const reader = await getAttendanceQrReader();
-            controls = await reader.decodeFromVideoDevice(undefined, video, (result) => {
+            controls = await reader.decodeFromConstraints({
+                audio: false,
+                video: {
+                    facingMode: { ideal: 'environment' },
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                },
+            }, video, (result) => {
                 if (result) submitQrValue(result.getText());
             });
-            message.textContent = 'Camera ready. Hold the gym-issued QR inside the frame.';
+            message.textContent = 'Camera ready. Place the entire QR inside the green rectangle—it will scan automatically.';
         } catch (error) {
             const cameraErrors = {
                 NotAllowedError: 'Camera permission is blocked. Allow camera access in the browser site settings, then reopen the scanner.',
@@ -513,6 +524,7 @@ document.querySelectorAll('[data-attendance-scanner]').forEach((scanner) => {
                 SecurityError: 'The browser blocked camera access for this page. Allow camera access in the site settings.',
             };
             message.textContent = cameraErrors[error?.name] ?? `Camera could not start${error?.message ? `: ${error.message}` : '.'}`;
+            cameraFallbackButton.hidden = false;
         }
     };
 
@@ -520,12 +532,17 @@ document.querySelectorAll('[data-attendance-scanner]').forEach((scanner) => {
         isSubmitting = false;
         dialog.showModal();
         startCamera();
+
+        if (!canUseLiveCamera) fileInput.click();
     });
+
+    cameraFallbackButton.addEventListener('click', () => fileInput.click());
 
     fileInput.addEventListener('change', async () => {
         const file = fileInput.files?.[0];
         if (!file) return;
 
+        if (!dialog.open) dialog.showModal();
         stopScanner();
         message.textContent = 'Reading QR image…';
         const imageUrl = URL.createObjectURL(file);

@@ -21,7 +21,15 @@ return new class extends Migration
             $table->index(['member_id', 'status']);
         });
 
-        DB::statement("CREATE UNIQUE INDEX coach_assignment_requests_one_pending_per_member ON coach_assignment_requests (member_id) WHERE status = 'pending'");
+        if (DB::getDriverName() === 'mysql') {
+            Schema::table('coach_assignment_requests', function (Blueprint $table): void {
+                $table->unsignedBigInteger('pending_member_id')
+                    ->storedAs("IF(status = 'pending', member_id, NULL)")
+                    ->unique('coach_assignment_requests_one_pending_per_member');
+            });
+        } else {
+            DB::statement("CREATE UNIQUE INDEX coach_assignment_requests_one_pending_per_member ON coach_assignment_requests (member_id) WHERE status = 'pending'");
+        }
     }
 
     public function down(): void

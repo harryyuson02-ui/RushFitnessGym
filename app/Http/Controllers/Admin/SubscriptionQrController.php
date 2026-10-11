@@ -29,12 +29,12 @@ class SubscriptionQrController extends Controller
         $result = (new SvgWriter)->write(new QrCode(
             data: route('admin.access.verify', $subscription->access_token),
             errorCorrectionLevel: ErrorCorrectionLevel::High,
-            size: 320,
-            margin: 16,
+            size: 420,
+            margin: 24,
         ));
         $xml = $result->getXml();
         $outerSize = (int) $xml['width'];
-        $canvasHeight = $outerSize + 64;
+        $canvasHeight = $outerSize + 72;
         $center = $outerSize / 2;
 
         $xml['height'] = $canvasHeight.'px';
@@ -42,36 +42,36 @@ class SubscriptionQrController extends Controller
         $xml->rect[0]['height'] = (string) $canvasHeight;
 
         $brandBackground = $xml->addChild('rect');
-        $brandBackground->addAttribute('x', (string) ($center - 52));
-        $brandBackground->addAttribute('y', (string) ($center - 30));
-        $brandBackground->addAttribute('width', '104');
-        $brandBackground->addAttribute('height', '60');
-        $brandBackground->addAttribute('rx', '8');
+        $brandBackground->addAttribute('x', (string) ($center - 44));
+        $brandBackground->addAttribute('y', (string) ($center - 25));
+        $brandBackground->addAttribute('width', '88');
+        $brandBackground->addAttribute('height', '50');
+        $brandBackground->addAttribute('rx', '7');
         $brandBackground->addAttribute('fill', '#ffffff');
 
         $brand = $xml->addChild('text', 'RUSH');
         $brand->addAttribute('x', (string) $center);
-        $brand->addAttribute('y', (string) ($center - 2));
+        $brand->addAttribute('y', (string) ($center - 1));
         $brand->addAttribute('text-anchor', 'middle');
         $brand->addAttribute('font-family', 'Arial, sans-serif');
-        $brand->addAttribute('font-size', '23');
+        $brand->addAttribute('font-size', '19');
         $brand->addAttribute('font-weight', '900');
         $brand->addAttribute('letter-spacing', '2');
         $brand->addAttribute('fill', '#65a30d');
 
         $brandSubtitle = $xml->addChild('text', 'FITNESS GYM');
         $brandSubtitle->addAttribute('x', (string) $center);
-        $brandSubtitle->addAttribute('y', (string) ($center + 16));
+        $brandSubtitle->addAttribute('y', (string) ($center + 13));
         $brandSubtitle->addAttribute('text-anchor', 'middle');
         $brandSubtitle->addAttribute('font-family', 'Arial, sans-serif');
-        $brandSubtitle->addAttribute('font-size', '8');
+        $brandSubtitle->addAttribute('font-size', '6.5');
         $brandSubtitle->addAttribute('font-weight', '700');
         $brandSubtitle->addAttribute('letter-spacing', '2');
         $brandSubtitle->addAttribute('fill', '#18181b');
 
         $memberName = $xml->addChild('text', htmlspecialchars($subscription->member->full_name, ENT_XML1 | ENT_COMPAT, 'UTF-8'));
         $memberName->addAttribute('x', (string) $center);
-        $memberName->addAttribute('y', (string) ($outerSize + 28));
+        $memberName->addAttribute('y', (string) ($outerSize + 30));
         $memberName->addAttribute('text-anchor', 'middle');
         $memberName->addAttribute('font-family', 'Arial, sans-serif');
         $memberName->addAttribute('font-size', '17');
@@ -80,7 +80,7 @@ class SubscriptionQrController extends Controller
 
         $memberCode = $xml->addChild('text', htmlspecialchars($subscription->member->member_code, ENT_XML1 | ENT_COMPAT, 'UTF-8'));
         $memberCode->addAttribute('x', (string) $center);
-        $memberCode->addAttribute('y', (string) ($outerSize + 48));
+        $memberCode->addAttribute('y', (string) ($outerSize + 54));
         $memberCode->addAttribute('text-anchor', 'middle');
         $memberCode->addAttribute('font-family', 'Arial, sans-serif');
         $memberCode->addAttribute('font-size', '11');
@@ -89,7 +89,7 @@ class SubscriptionQrController extends Controller
 
         $response = response($result->getString())
             ->header('Content-Type', $result->getMimeType())
-            ->header('Cache-Control', 'private, max-age=300');
+            ->header('Cache-Control', 'private, no-store, max-age=0');
 
         if ($request->boolean('download')) {
             $response->header('Content-Disposition', 'attachment; filename="'.$subscription->member->member_code.'-access-qr.svg"');
@@ -102,6 +102,7 @@ class SubscriptionQrController extends Controller
     {
         $subscription = Subscription::query()
             ->with(['member.coach', 'plan'])
+            ->active()
             ->where('access_token', $token)
             ->firstOrFail();
 

@@ -34,7 +34,10 @@ class Subscription extends Model
     #[Scope]
     protected function active(Builder $query): Builder
     {
-        return $query->where('status', 'active')->whereDate('expires_at', '>=', today());
+        return $query
+            ->where('status', 'active')
+            ->whereDate('starts_at', '<=', today())
+            ->whereDate('expires_at', '>=', today());
     }
 
     public function member(): BelongsTo

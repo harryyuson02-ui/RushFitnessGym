@@ -25,7 +25,6 @@ class AttendanceCheckInController extends Controller
         $subscription = Subscription::query()
             ->with('member.user')
             ->active()
-            ->whereDate('starts_at', '<=', today())
             ->where('access_token', $token)
             ->first();
 

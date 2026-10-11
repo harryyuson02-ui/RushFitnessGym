@@ -24,19 +24,29 @@
             <svg class="size-7 transition group-hover:scale-105" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4M8 8h3v3H8V8Zm5 0h3v3h-3V8Zm-5 5h3v3H8v-3Zm5 0h1m2 0v3h-3v-1"/></svg>
         </button>
         <p class="sr-only" data-attendance-status aria-live="polite">Ready to scan a gym-issued membership QR.</p>
-        <dialog class="m-auto w-[min(42rem,calc(100vw-2rem))] rounded-2xl bg-zinc-950 p-0 text-white shadow-2xl backdrop:bg-zinc-950/80" data-attendance-scan-dialog>
+        <dialog class="m-auto w-[min(42rem,calc(100vw-1rem))] rounded-2xl bg-zinc-950 p-0 text-white shadow-2xl backdrop:bg-zinc-950/80" data-attendance-scan-dialog>
             <div class="p-5 sm:p-6">
                 <div class="mb-4 flex items-start justify-between gap-4">
                     <div><h3 class="text-xl font-extrabold">Attendance QR scanner</h3><p class="mt-1 text-sm text-zinc-400">Hold the member’s QR inside the camera frame.</p></div>
                     <button type="button" class="rounded-lg px-3 py-2 font-bold text-zinc-300 hover:bg-zinc-800" data-attendance-scan-close aria-label="Close QR scanner">✕</button>
                 </div>
-                <div class="relative overflow-hidden rounded-xl border border-zinc-800 bg-black">
-                    <video class="aspect-video w-full object-cover" autoplay playsinline muted data-attendance-scan-video></video>
-                    <div class="pointer-events-none absolute inset-[12%] rounded-2xl border-2 border-lime-400 shadow-[0_0_0_999px_rgba(0,0,0,.38)]" aria-hidden="true"></div>
+                <div class="relative mx-auto aspect-[4/3] max-h-[62dvh] w-full overflow-hidden rounded-2xl border border-zinc-700 bg-black" data-attendance-camera-frame>
+                    <video class="size-full object-cover" autoplay playsinline muted data-attendance-scan-video aria-label="Rear camera QR scanner"></video>
+                    <div class="pointer-events-none absolute inset-x-[10%] inset-y-[16%] rounded-2xl border-2 border-lime-400 shadow-[0_0_0_999px_rgba(0,0,0,.5)]" aria-hidden="true">
+                        <span class="absolute left-3 right-3 top-1/2 h-0.5 -translate-y-1/2 animate-pulse bg-lime-300 shadow-[0_0_12px_rgba(190,242,100,.9)]"></span>
+                    </div>
+                    <span class="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 rounded-full bg-zinc-950/80 px-3 py-1 text-[0.65rem] font-bold uppercase tracking-[.14em] text-lime-300">Automatic QR detection</span>
+                    <button type="button" class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-zinc-950/85 p-6 text-center" data-attendance-camera-fallback hidden>
+                        <span class="flex size-16 items-center justify-center rounded-full bg-lime-400 text-zinc-950 shadow-lg">
+                            <svg class="size-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h3l1.4-2h7.2L17 7h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm8 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/></svg>
+                        </span>
+                        <span class="text-lg font-extrabold text-white">Open phone camera</span>
+                        <span class="max-w-xs text-sm leading-6 text-zinc-300">Photograph the QR inside the frame. It will be read automatically.</span>
+                    </button>
                 </div>
                 <p class="mt-3 text-sm text-lime-300" data-attendance-scan-message aria-live="polite">Starting camera…</p>
-                <div class="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <label class="rush-dark-button cursor-pointer text-center">Use device camera or QR image<input type="file" accept="image/*" capture="environment" class="sr-only" data-attendance-scan-file></label>
+                <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <label class="rush-dark-button cursor-pointer text-center">Take a QR photo instead<input type="file" accept="image/*" capture="environment" class="sr-only" data-attendance-scan-file data-mobile-camera-fallback></label>
                     <button type="button" class="rush-secondary !text-zinc-950" data-attendance-scan-cancel>Cancel</button>
                 </div>
             </div>

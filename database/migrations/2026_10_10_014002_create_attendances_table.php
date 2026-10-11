@@ -17,7 +17,7 @@ return new class extends Migration
             $table->foreignId('subscription_id')->constrained()->restrictOnDelete();
             $table->foreignId('scanned_by')->nullable()->constrained('users')->nullOnDelete();
             $table->date('attendance_date');
-            $table->timestamp('checked_in_at');
+            $table->dateTime('checked_in_at');
             $table->timestamps();
 
             $table->unique(['member_id', 'attendance_date']);

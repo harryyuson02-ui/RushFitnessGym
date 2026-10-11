@@ -46,6 +46,10 @@
             "Composer\\Config::disableProcessTimeout",
             "@php artisan dev"
         ],
+        "mobile": [
+            "Composer\\Config::disableProcessTimeout",
+            "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Start-MobileHttps.ps1"
+        ],
         "test": [
             "@php artisan config:clear --ansi @no_additional_args",
             "@php artisan test"

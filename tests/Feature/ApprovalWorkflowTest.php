@@ -258,6 +258,7 @@ class ApprovalWorkflowTest extends TestCase
         $qrResponse->assertOk()
             ->assertHeader('Content-Type', 'image/svg+xml')
             ->assertHeader('Content-Disposition', 'attachment; filename="RFG-QR-1001-access-qr.svg"')
+            ->assertHeader('Cache-Control', 'max-age=0, no-store, private')
             ->assertSee('RUSH', false)
             ->assertSee('FITNESS GYM', false)
             ->assertSee('Ana Reyes', false)
@@ -267,6 +268,33 @@ class ApprovalWorkflowTest extends TestCase
         $this->actingAs($otherMember)
             ->get(route('access-key.image', $subscription->access_token))
             ->assertForbidden();
+    }
+
+    public function test_membership_qr_stops_working_outside_the_subscription_dates(): void
+    {
+        $admin = User::factory()->create();
+        $memberUser = User::factory()->member()->create();
+        $member = Member::factory()->for($memberUser)->create();
+        $expired = Subscription::factory()->for($member)->create([
+            'starts_at' => today()->subMonth(),
+            'expires_at' => today()->subDay(),
+        ]);
+        $notStarted = Subscription::factory()->for($member)->create([
+            'starts_at' => today()->addDay(),
+            'expires_at' => today()->addMonth(),
+        ]);
+
+        $this->actingAs($memberUser)
+            ->get(route('access-key.image', $expired->access_token))
+            ->assertNotFound();
+        $this->get(route('access-key.image', $notStarted->access_token))
+            ->assertNotFound();
+
+        $this->actingAs($admin)
+            ->get(route('admin.access.verify', $expired->access_token))
+            ->assertNotFound();
+        $this->get(route('admin.access.verify', $notStarted->access_token))
+            ->assertNotFound();
     }
 
     public function test_repeated_admin_approval_does_not_create_a_duplicate_training_request(): void

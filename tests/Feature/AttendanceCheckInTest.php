@@ -73,6 +73,10 @@ class AttendanceCheckInTest extends TestCase
         $expired = Subscription::factory()->create([
             'expires_at' => today()->subDay(),
         ]);
+        $notStarted = Subscription::factory()->create([
+            'starts_at' => today()->addDay(),
+            'expires_at' => today()->addMonth(),
+        ]);
 
         $this->actingAs($admin)->postJson(route('admin.attendance.check-in'), [
             'qr_value' => route('admin.access.verify', $expired->access_token),
@@ -80,6 +84,10 @@ class AttendanceCheckInTest extends TestCase
 
         $this->postJson(route('admin.attendance.check-in'), [
             'qr_value' => 'https://example.com/not-a-rush-qr',
+        ])->assertUnprocessable();
+
+        $this->postJson(route('admin.attendance.check-in'), [
+            'qr_value' => route('admin.access.verify', $notStarted->access_token),
         ])->assertUnprocessable();
 
         $this->assertDatabaseEmpty('attendances');
@@ -117,7 +125,12 @@ class AttendanceCheckInTest extends TestCase
             ->assertSee('aria-label="Scan member attendance QR"', false)
             ->assertSee('data-attendance-scan-dialog', false)
             ->assertSee('data-attendance-scan-video', false)
+            ->assertSee('data-attendance-camera-frame', false)
+            ->assertSee('data-attendance-camera-fallback', false)
+            ->assertSeeText('Automatic QR detection')
+            ->assertSeeText('Open phone camera')
             ->assertSee('capture="environment"', false)
+            ->assertSee('data-mobile-camera-fallback', false)
             ->assertSee('data-attendance-table', false)
             ->assertSee('data-attendance-calendar-open', false)
             ->assertSee('data-attendance-calendar-dialog', false)

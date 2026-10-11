@@ -19,9 +19,9 @@ return new class extends Migration
             $table->date('expires_at');
             $table->string('status', 20)->default('active');
             $table->uuid('access_token')->unique();
-            $table->timestamp('paid_at');
-            $table->timestamp('qr_issued_at');
-            $table->timestamp('reminder_sent_at')->nullable();
+            $table->dateTime('paid_at');
+            $table->dateTime('qr_issued_at');
+            $table->dateTime('reminder_sent_at')->nullable();
             $table->timestamps();
             $table->index(['status', 'expires_at']);
         });
