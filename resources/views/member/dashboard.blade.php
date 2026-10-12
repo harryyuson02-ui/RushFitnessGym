@@ -26,30 +26,50 @@
     </div>
 </section>
 @endif
-<div class="mt-6 grid gap-6 xl:grid-cols-2"><section class="rush-card p-5 sm:p-6"><h2 class="text-lg font-bold">Coach</h2><p class="mt-4 font-semibold">{{ $member->coach?->name ?? 'Not assigned' }}</p><p class="text-sm text-lime-800">{{ $member->coach?->specialty }}</p></section><section class="rush-card p-5 sm:p-6"><h2 class="text-lg font-bold">Upcoming sessions</h2><div class="mt-4 grid gap-3">@forelse($events as $event)<div class="rounded-xl bg-zinc-50 p-4"><p class="font-semibold">{{ $event->title }}</p><p class="mt-1 text-sm text-zinc-500">{{ $event->starts_at->format('M j, Y · g:i A') }} · {{ $event->coach?->name }}</p></div>@empty<p class="text-sm text-zinc-500">No sessions scheduled.</p>@endforelse</div></section></div>
-@if($member->pendingCoachAssignment)
-<section class="rush-card mt-6 p-5 sm:p-6">
-    <h2 class="text-lg font-bold">Training request pending</h2>
-    <p class="mt-2 text-sm text-zinc-600">{{ $member->pendingCoachAssignment->coach->name }} is reviewing your request. Your gym membership remains active while you wait.</p>
-</section>
-@elseif($member->coach_id === null && $availableCoaches->isNotEmpty())
-<section class="rush-card mt-6 p-5 sm:p-6" aria-labelledby="coach-request-title">
-    <h2 id="coach-request-title" class="text-lg font-bold">Choose a coach</h2>
-    <p class="mt-2 text-sm text-zinc-600">Your membership is active. Select an available coach to send a training request.</p>
-    <form method="POST" action="{{ route('member.coach-request.store') }}" class="mt-4 flex flex-col gap-3 sm:flex-row">
-        @csrf
-        <label for="coach_id" class="sr-only">Available coach</label>
-        <select id="coach_id" name="coach_id" class="rush-input" required>
-            <option value="">Select a coach</option>
-            @foreach($availableCoaches as $availableCoach)
-                <option value="{{ $availableCoach->id }}">{{ $availableCoach->name }} — {{ $availableCoach->specialty }}</option>
-            @endforeach
-        </select>
-        <button type="submit" class="rush-primary shrink-0">Send training request</button>
-    </form>
-    <x-input-error :messages="$errors->get('coach_id')" />
-</section>
-@endif
+<div class="mt-6 grid gap-6 xl:grid-cols-2">
+    <section class="rush-card p-5 sm:p-6" data-coach-selection="inside-coach-card">
+        <h2 class="text-lg font-bold">Coach</h2>
+        <p class="mt-4 font-semibold">{{ $member->coach?->name ?? 'Not assigned' }}</p>
+        <p class="text-sm text-lime-800">{{ $member->coach?->specialty }}</p>
+
+        @if($member->pendingCoachAssignment)
+            <div class="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <p class="font-bold text-amber-900">Training request pending</p>
+                <p class="mt-1 text-sm leading-6 text-amber-800">{{ $member->pendingCoachAssignment->coach->name }} is reviewing your request. Your gym membership remains active while you wait.</p>
+            </div>
+        @elseif($member->coach_id === null && $availableCoaches->isNotEmpty())
+            <div class="mt-5 border-t border-zinc-200 pt-5" aria-labelledby="coach-request-title">
+                <h3 id="coach-request-title" class="font-bold">Choose a coach</h3>
+                <p class="mt-1 text-sm leading-6 text-zinc-600">Select an available coach and send a training request.</p>
+                <form method="POST" action="{{ route('member.coach-request.store') }}" class="mt-4 grid gap-3">
+                    @csrf
+                    <label for="coach_id" class="text-sm font-semibold">Available coach</label>
+                    <select id="coach_id" name="coach_id" class="rush-input" required>
+                        <option value="">Select a coach</option>
+                        @foreach($availableCoaches as $availableCoach)
+                            <option value="{{ $availableCoach->id }}">{{ $availableCoach->name }} — {{ $availableCoach->specialty }}</option>
+                        @endforeach
+                    </select>
+                    <button type="submit" class="rush-primary w-full sm:w-auto">Send training request</button>
+                </form>
+                <x-input-error :messages="$errors->get('coach_id')" />
+            </div>
+        @elseif($member->coach_id === null && $activeSubscription)
+            <p class="mt-4 text-sm text-zinc-500">No coaches are currently available. Please check again later.</p>
+        @endif
+    </section>
+
+    <section class="rush-card p-5 sm:p-6">
+        <h2 class="text-lg font-bold">Upcoming sessions</h2>
+        <div class="mt-4 grid gap-3">
+            @forelse($events as $event)
+                <div class="rounded-xl bg-zinc-50 p-4"><p class="font-semibold">{{ $event->title }}</p><p class="mt-1 text-sm text-zinc-500">{{ $event->starts_at->format('M j, Y · g:i A') }} · {{ $event->coach?->name }}</p></div>
+            @empty
+                <p class="text-sm text-zinc-500">No sessions scheduled.</p>
+            @endforelse
+        </div>
+    </section>
+</div>
 @if($canApply)
 <section class="mt-8" aria-labelledby="reapplication-title">
     <div class="mb-5"><p class="text-[0.65rem] font-bold uppercase tracking-[0.18em] text-lime-700">Membership access</p><h2 id="reapplication-title" class="mt-2 text-2xl font-bold tracking-tight">Submit another membership application</h2><p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">Choose a new plan and update your coaching preferences.</p></div>

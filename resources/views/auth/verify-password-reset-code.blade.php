@@ -27,7 +27,28 @@
 
             <form method="POST" action="{{ route('password.verify-code') }}" class="mt-8 grid gap-5">
                 @csrf
-                <label class="rush-label">Authentication code<input class="rush-input text-center text-2xl tracking-[0.35em]" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" required autofocus></label>
+                @php($codeDigits = old('code_digits', str_split((string) old('code', ''))))
+                <fieldset class="grid gap-2" data-verification-code>
+                    <legend class="text-sm font-bold">Authentication code</legend>
+                    <div class="grid grid-cols-6 gap-2" role="group" aria-label="Six-digit authentication code">
+                        @for ($index = 0; $index < 6; $index++)
+                            <input
+                                class="min-h-14 min-w-0 rounded-xl border border-zinc-300 bg-white text-center text-2xl font-bold tabular-nums outline-none transition focus:border-lime-500 focus:ring-4 focus:ring-lime-100"
+                                type="text"
+                                name="code_digits[]"
+                                value="{{ $codeDigits[$index] ?? '' }}"
+                                inputmode="numeric"
+                                pattern="[0-9]"
+                                maxlength="1"
+                                aria-label="Code digit {{ $index + 1 }} of 6"
+                                data-code-digit
+                                @if ($index === 0) autocomplete="one-time-code" autofocus @else autocomplete="off" @endif
+                                required
+                            >
+                        @endfor
+                    </div>
+                    <p class="text-xs text-zinc-500">Type or paste the six-digit code from your email.</p>
+                </fieldset>
                 <button class="rush-primary" type="submit">Verify code</button>
                 <a href="{{ route('password.request') }}" class="rush-secondary text-center">Request a new code</a>
             </form>

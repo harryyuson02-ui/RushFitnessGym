@@ -29,6 +29,18 @@ class DatabaseSeeder extends Seeder
             MembershipPlanSeeder::class,
         ]);
 
+        User::whereIn('email', [
+            'coach1@rushfitness.test',
+            'coach2@rushfitness.test',
+            'coach3@rushfitness.test',
+            'coach4@rushfitness.test',
+            'member1@rushfitness.test',
+            'member2@rushfitness.test',
+            'member3@rushfitness.test',
+            'member4@rushfitness.test',
+            'member5@rushfitness.test',
+        ])->delete();
+
         $admin = User::updateOrCreate(['email' => 'admin@rushfitness.test'], [
             'name' => 'Rush Fitness Admin',
             'password' => 'password',
@@ -37,10 +49,8 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $coaches = [
-            ['name' => 'Alex Rivera', 'email' => 'coach1@rushfitness.test', 'phone' => '09171234567'],
-            ['name' => 'Mika Santos', 'email' => 'coach2@rushfitness.test', 'phone' => '09181234567'],
-            ['name' => 'Jordan Cruz', 'email' => 'coach3@rushfitness.test', 'phone' => '09191234567'],
-            ['name' => 'Taylor Reyes', 'email' => 'coach4@rushfitness.test', 'phone' => '09161234567'],
+            ['name' => 'Elmer Permacio', 'email' => 'coachelmer@gmail.com', 'phone' => '09171234567'],
+            ['name' => 'Jay Verdadero', 'email' => 'coachjay@gmail.com', 'phone' => '09181234567'],
         ];
 
         foreach ($coaches as $coach) {
@@ -59,11 +69,9 @@ class DatabaseSeeder extends Seeder
         }
 
         $members = [
-            ['code' => 'RFG-1001', 'first_name' => 'Jamie', 'last_name' => 'Santos', 'email' => 'member1@rushfitness.test', 'phone' => '09170000001', 'coach' => 'Alex Rivera', 'goal' => 'Build muscle', 'plan' => 'Monthly', 'token' => '00000000-0000-4000-8000-000000001001'],
-            ['code' => 'RFG-1002', 'first_name' => 'Bianca', 'last_name' => 'Reyes', 'email' => 'member2@rushfitness.test', 'phone' => '09170000002', 'coach' => 'Mika Santos', 'goal' => 'Weight loss', 'plan' => 'Quarterly', 'token' => '00000000-0000-4000-8000-000000001002'],
-            ['code' => 'RFG-1003', 'first_name' => 'Carlo', 'last_name' => 'Mendoza', 'email' => 'member3@rushfitness.test', 'phone' => '09170000003', 'coach' => 'Jordan Cruz', 'goal' => 'Improve strength', 'plan' => 'Annual', 'token' => '00000000-0000-4000-8000-000000001003'],
-            ['code' => 'RFG-1004', 'first_name' => 'Dana', 'last_name' => 'Garcia', 'email' => 'member4@rushfitness.test', 'phone' => '09170000004', 'coach' => 'Taylor Reyes', 'goal' => 'General fitness', 'plan' => 'Monthly', 'token' => '00000000-0000-4000-8000-000000001004'],
-            ['code' => 'RFG-1005', 'first_name' => 'Eli', 'last_name' => 'Navarro', 'email' => 'member5@rushfitness.test', 'phone' => '09170000005', 'coach' => 'Alex Rivera', 'goal' => 'Build muscle', 'plan' => 'Quarterly', 'token' => '00000000-0000-4000-8000-000000001005'],
+            ['code' => 'RFG-1001', 'first_name' => 'Shawn Harry', 'last_name' => 'Yuson', 'email' => 'shawnharry@gmail.com', 'phone' => '09170000001', 'coach' => 'Elmer Permacio', 'goal' => 'Build muscle', 'plan' => 'Monthly', 'token' => '00000000-0000-4000-8000-000000001001'],
+            ['code' => 'RFG-1002', 'first_name' => 'Qian Jedmarr', 'last_name' => 'Forro', 'email' => 'qianjedmarr@gmail.com', 'phone' => '09170000002', 'coach' => 'Jay Verdadero', 'goal' => 'Martial Arts', 'plan' => 'Quarterly', 'token' => '00000000-0000-4000-8000-000000001002'],
+            ['code' => 'RFG-1003', 'first_name' => 'Jose Joenard', 'last_name' => 'Loja', 'email' => 'josejoenard@gmail.com', 'phone' => '09170000003', 'coach' => 'Jay Verdadero', 'goal' => 'Kick Boxing', 'plan' => 'Annual', 'token' => '00000000-0000-4000-8000-000000001003'],
         ];
 
         foreach ($members as $index => $member) {
@@ -108,7 +116,7 @@ class DatabaseSeeder extends Seeder
                 'reminder_sent_at' => null,
             ]);
 
-            Transaction::updateOrCreate(['reference' => 'SEED-'.$member['code']], [
+            $transaction = Transaction::updateOrCreate(['reference' => 'SEED-'.$member['code']], [
                 'member_id' => $memberProfile->id,
                 'subscription_id' => $subscription->id,
                 'membership_plan_id' => $plan->id,
@@ -116,6 +124,13 @@ class DatabaseSeeder extends Seeder
                 'payment_method' => 'gcash',
                 'status' => 'paid',
                 'paid_at' => now()->subDays(5),
+            ]);
+            $transaction->gcashPayment()->updateOrCreate([], [
+                'reference' => 'SEED-'.$member['code'],
+                'receipt_path' => 'receipts/seed-'.$member['code'].'.pdf',
+                'verification_status' => 'verified',
+                'verified_at' => now()->subDays(5),
+                'verification_notes' => 'Seeded verified payment.',
             ]);
 
             ScheduleEvent::updateOrCreate([

@@ -13,7 +13,7 @@ class Coach extends Model
     /** @use HasFactory<CoachFactory> */
     use HasFactory;
 
-    public const SPECIALTIES = ['Strength', 'Conditioning', 'Strength & Conditioning', 'Boxing', 'Boxing & Functional Fitness', 'Mobility', 'Weight Loss', 'Weight Loss & Mobility', 'Bodybuilding', 'Yoga'];
+    public const SPECIALTIES = ['Gym Coach', 'Martial Arts Coach', 'Strength', 'Conditioning', 'Strength & Conditioning', 'Boxing', 'Boxing & Functional Fitness', 'Mobility', 'Weight Loss', 'Weight Loss & Mobility', 'Bodybuilding', 'Yoga'];
 
     protected $fillable = ['user_id', 'name', 'email', 'phone', 'specialty', 'schedule', 'is_available'];
 

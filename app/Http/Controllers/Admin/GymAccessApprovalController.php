@@ -18,9 +18,9 @@ class GymAccessApprovalController extends Controller
     {
         $decision = $request->validated('decision');
 
-        $subscription = DB::transaction(function () use ($subscription, $decision): Subscription {
+        $subscription = DB::transaction(function () use ($request, $subscription, $decision): Subscription {
             $lockedSubscription = Subscription::query()
-                ->with(['member.user', 'requestedCoach.user'])
+                ->with(['member.user', 'requestedCoach.user', 'transactions.gcashPayment', 'transactions.cashPayment'])
                 ->whereKey($subscription)
                 ->lockForUpdate()
                 ->firstOrFail();
@@ -28,6 +28,16 @@ class GymAccessApprovalController extends Controller
             abort_unless($lockedSubscription->status === 'pending', 409, 'This application has already been reviewed.');
 
             $approved = $decision === 'approved';
+            $payment = $lockedSubscription->transactions->first();
+
+            abort_if(
+                $approved
+                    && $payment?->payment_method === 'gcash'
+                    && $payment->gcashPayment?->verification_status !== 'verified',
+                409,
+                'Verify the GCash payment before approving this membership.',
+            );
+
             $lockedSubscription->update($approved ? [
                 'status' => 'active',
                 'access_token' => (string) Str::uuid(),
@@ -36,10 +46,18 @@ class GymAccessApprovalController extends Controller
             ] : [
                 'status' => 'declined',
             ]);
-            $lockedSubscription->transactions()->update([
-                'status' => $approved ? 'paid' : 'rejected',
-                'paid_at' => $approved ? now() : null,
-            ]);
+            if ($approved && $payment?->payment_method === 'cash') {
+                $payment->update(['status' => 'paid', 'paid_at' => now()]);
+                $payment->cashPayment?->update([
+                    'received_by' => $request->user()->id,
+                    'received_at' => now(),
+                ]);
+            } elseif (! $approved) {
+                $lockedSubscription->transactions()->where('status', 'pending')->update([
+                    'status' => 'rejected',
+                    'paid_at' => null,
+                ]);
+            }
 
             if ($approved && $lockedSubscription->requested_coach_id !== null && $lockedSubscription->member->coach_id === null) {
                 CoachAssignmentRequest::firstOrCreate([

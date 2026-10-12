@@ -18,6 +18,55 @@ document.querySelectorAll('[data-digits-only]').forEach((input) => {
     });
 });
 
+document.querySelectorAll('[data-verification-code]').forEach((container) => {
+    const digits = [...container.querySelectorAll('[data-code-digit]')];
+
+    const fillDigits = (value, startIndex = 0) => {
+        const numbers = value.replace(/\D/g, '').slice(0, digits.length - startIndex);
+        digits.slice(startIndex).forEach((digit) => { digit.value = ''; });
+        numbers.split('').forEach((number, offset) => {
+            digits[startIndex + offset].value = number;
+        });
+
+        const nextIndex = Math.min(startIndex + numbers.length, digits.length - 1);
+        digits[nextIndex]?.focus();
+        digits[nextIndex]?.select();
+    };
+
+    digits.forEach((input, index) => {
+        input.addEventListener('input', () => {
+            const value = input.value.replace(/\D/g, '');
+            input.value = value.slice(-1);
+
+            if (value.length > 1) {
+                fillDigits(value, index);
+            } else if (input.value && index < digits.length - 1) {
+                digits[index + 1].focus();
+            }
+        });
+
+        input.addEventListener('keydown', (event) => {
+            if (event.key === 'Backspace' && input.value === '' && index > 0) {
+                digits[index - 1].value = '';
+                digits[index - 1].focus();
+            }
+            if (event.key === 'ArrowLeft' && index > 0) {
+                event.preventDefault();
+                digits[index - 1].focus();
+            }
+            if (event.key === 'ArrowRight' && index < digits.length - 1) {
+                event.preventDefault();
+                digits[index + 1].focus();
+            }
+        });
+
+        input.addEventListener('paste', (event) => {
+            event.preventDefault();
+            fillDigits(event.clipboardData?.getData('text') ?? '', index);
+        });
+    });
+});
+
 document.querySelectorAll('[data-ph-mobile]').forEach((input) => {
     const error = input.closest('label')?.querySelector('[aria-live="polite"]');
     const validate = () => {
@@ -35,6 +84,124 @@ document.querySelectorAll('[data-ph-mobile]').forEach((input) => {
     input.addEventListener('blur', validate);
     input.addEventListener('invalid', validate);
     if (input.value !== '') validate();
+});
+
+document.querySelectorAll('[data-ph-location]').forEach((location) => {
+    const province = location.querySelector('[data-location-province]');
+    const municipality = location.querySelector('[data-location-municipality]');
+    const barangay = location.querySelector('[data-location-barangay]');
+    const address = location.querySelector('[data-location-address]');
+    const status = location.querySelector('[data-location-status]');
+    const apiBase = location.dataset.apiBase;
+
+    const selected = {
+        province: location.dataset.selectedProvince,
+        municipality: location.dataset.selectedMunicipality,
+        barangay: location.dataset.selectedBarangay,
+    };
+
+    const resetSelect = (select, text) => {
+        select.replaceChildren(new Option(text, ''));
+        select.disabled = true;
+    };
+
+    const populateSelect = (select, items, placeholder, selectedName = '') => {
+        const options = [new Option(placeholder, '')];
+        items
+            .sort((left, right) => left.name.localeCompare(right.name))
+            .forEach((item) => {
+                const option = new Option(item.name, item.name, false, item.name === selectedName);
+                option.dataset.code = item.code;
+                options.push(option);
+            });
+        select.replaceChildren(...options);
+        select.disabled = false;
+    };
+
+    const loadLocations = async (path) => {
+        const response = await fetch(`${apiBase}${path}`, { headers: { Accept: 'application/json' } });
+        if (!response.ok) throw new Error('Location list unavailable');
+        const payload = await response.json();
+        return payload.data ?? payload;
+    };
+
+    const selectedCode = (select) => select.selectedOptions[0]?.dataset.code;
+
+    const updateAddress = () => {
+        address.value = province.value && municipality.value && barangay.value
+            ? `${barangay.value}, ${municipality.value}, ${province.value}`
+            : '';
+    };
+
+    const loadBarangays = async (municipalityCode, selectedName = '') => {
+        resetSelect(barangay, 'Loading barangays…');
+        const items = await loadLocations(`/cities-municipalities/${encodeURIComponent(municipalityCode)}/barangays`);
+        populateSelect(barangay, items, 'Select barangay', selectedName);
+    };
+
+    const loadMunicipalities = async (provinceCode, selectedMunicipality = '', selectedBarangay = '') => {
+        resetSelect(municipality, 'Loading cities and municipalities…');
+        resetSelect(barangay, 'Select a city or municipality first');
+        const items = await loadLocations(`/provinces/${encodeURIComponent(provinceCode)}/cities-municipalities`);
+        populateSelect(municipality, items, 'Select city or municipality', selectedMunicipality);
+
+        const municipalityCode = selectedCode(municipality);
+        if (municipalityCode) await loadBarangays(municipalityCode, selectedBarangay);
+    };
+
+    province.addEventListener('change', async () => {
+        address.value = '';
+        resetSelect(municipality, 'Select a province first');
+        resetSelect(barangay, 'Select a city or municipality first');
+        const provinceCode = selectedCode(province);
+        if (!provinceCode) return;
+
+        try {
+            status.textContent = 'Loading cities and municipalities…';
+            await loadMunicipalities(provinceCode);
+            status.textContent = 'Now choose your city or municipality.';
+        } catch {
+            status.textContent = 'The location list could not be loaded. Check your internet connection and try again.';
+        }
+    });
+
+    municipality.addEventListener('change', async () => {
+        address.value = '';
+        resetSelect(barangay, 'Select a city or municipality first');
+        const municipalityCode = selectedCode(municipality);
+        if (!municipalityCode) return;
+
+        try {
+            status.textContent = 'Loading barangays…';
+            await loadBarangays(municipalityCode);
+            status.textContent = 'Now choose your barangay.';
+        } catch {
+            status.textContent = 'The barangay list could not be loaded. Check your internet connection and try again.';
+        }
+    });
+
+    barangay.addEventListener('change', () => {
+        updateAddress();
+        status.textContent = address.value || 'Choose your barangay.';
+    });
+
+    (async () => {
+        try {
+            const provinces = await loadLocations('/provinces');
+            populateSelect(province, provinces, 'Select province', selected.province);
+            const provinceCode = selectedCode(province);
+
+            if (provinceCode) {
+                await loadMunicipalities(provinceCode, selected.municipality, selected.barangay);
+                updateAddress();
+            }
+
+            status.textContent = address.value || 'Choose your province, followed by your city or municipality, then your barangay.';
+        } catch {
+            resetSelect(province, 'Unable to load provinces');
+            status.textContent = 'The location list could not be loaded. Check your internet connection and refresh the page.';
+        }
+    })();
 });
 
 document.addEventListener('click', (event) => {
@@ -104,6 +271,30 @@ document.querySelectorAll('input[name="payment_method"]').forEach((input) => {
         fields.querySelectorAll('input').forEach((field) => { field.required = isGcash; });
     });
     if (input.checked) input.dispatchEvent(new Event('change'));
+});
+
+document.querySelectorAll('[data-membership-pricing]').forEach((pricing) => {
+    const totalAmount = pricing.querySelector('[data-membership-total-amount]');
+    const totalBreakdown = pricing.querySelector('[data-membership-total-breakdown]');
+    const currency = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' });
+    const updateTotal = () => {
+        const selectedPlan = pricing.querySelector('input[name="membership_plan_id"]:checked');
+
+        if (!selectedPlan) {
+            totalAmount.textContent = 'Choose a plan';
+            totalBreakdown.textContent = 'The total updates when you select a membership plan.';
+            return;
+        }
+
+        const planPrice = Number(selectedPlan.dataset.planPrice ?? 0);
+        totalAmount.textContent = currency.format(planPrice);
+        totalBreakdown.textContent = `${currency.format(planPrice)} gym membership · coaching fees arranged separately`;
+    };
+
+    pricing.querySelectorAll('input[name="membership_plan_id"], input[name="coach_id"]').forEach((input) => {
+        input.addEventListener('change', updateTotal);
+    });
+    updateTotal();
 });
 
 document.querySelectorAll('[data-chat-panel-target]').forEach((button) => {
@@ -204,7 +395,10 @@ document.querySelectorAll('[data-chat-compose]').forEach((form) => {
     });
 
     cameraButton.addEventListener('click', async () => {
-        if (!navigator.mediaDevices?.getUserMedia || !window.DataTransfer || !cameraDialog.showModal) {
+        if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia || !window.DataTransfer || !cameraDialog.showModal) {
+            setStatus(window.isSecureContext
+                ? 'Live camera is unavailable in this browser. Opening the device camera instead.'
+                : 'Live camera requires HTTPS. Opening the device camera instead.');
             choosePhoto('environment');
             return;
         }
@@ -219,9 +413,15 @@ document.querySelectorAll('[data-chat-compose]').forEach((form) => {
             cameraVideo.srcObject = cameraStream;
             await cameraVideo.play();
             cameraStatus.textContent = 'Camera ready. Frame your photo and select Capture photo.';
-        } catch {
+        } catch (error) {
             closeCamera();
-            setStatus('Live camera access was unavailable. Opening the device camera instead.');
+            const cameraErrors = {
+                NotAllowedError: 'Camera permission is blocked. Allow camera access in the browser site settings.',
+                NotFoundError: 'No camera was detected on this device.',
+                NotReadableError: 'The camera is already in use by another application.',
+                SecurityError: 'The browser blocked camera access for this page.',
+            };
+            setStatus(`${cameraErrors[error?.name] ?? 'Live camera access was unavailable'} Opening the device camera instead.`);
             choosePhoto('environment');
         }
     });

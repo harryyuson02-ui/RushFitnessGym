@@ -12,7 +12,7 @@ class TransactionController extends Controller
     {
         $member = $request->user()->member;
         $transactions = $member
-            ? $member->transactions()->with('plan:id,name')->latest()->paginate(15)
+            ? $member->transactions()->with(['plan:id,name', 'gcashPayment:id,transaction_id,reference,verification_status'])->latest()->paginate(15)
             : null;
 
         return view('member.transactions', compact('transactions'));

@@ -23,7 +23,7 @@ For live mobile-camera testing, run `composer run mobile` and open the temporary
 
 1. Provision a permanent HTTPS domain, PHP 8.3+, MySQL/MariaDB, and persistent object or server storage.
 2. Copy `.env.production.example` to `.env` and replace every placeholder. Never commit `.env`.
-3. Configure a real SMTP provider so sign-in and password-reset codes are delivered.
+3. Configure a real SMTP provider so password-reset codes are delivered. For Gmail, enable two-step verification, create a Google App Password, and place the Gmail address and App Password in the `MAIL_*` values. Never use or commit the normal Gmail password.
 4. Build and prepare the application:
 
 ```bash
@@ -34,6 +34,7 @@ php artisan key:generate
 php artisan migrate --force
 php artisan app:create-admin admin@example.com --name="Rush Fitness Admin"
 php artisan app:deployment-check
+php artisan app:mail-test owner@example.com
 php artisan optimize
 ```
 
@@ -72,7 +73,7 @@ php artisan app:deployment-check
 php artisan up
 ```
 
-Test login, password recovery, payment receipt review, chat/media, QR download, QR attendance scanning, and scheduler output after each release. Deploy to staging before production whenever database migrations are included.
+Test login, password recovery, payment receipt review, chat/media, QR download, QR attendance scanning, and scheduler output after each release. Live browser cameras require HTTPS (localhost is the development exception), browser permission, and an available camera. Both camera screens fall back to image capture/upload when live access is unavailable. Deploy to staging before production whenever database migrations are included.
 
 ## Verification
 

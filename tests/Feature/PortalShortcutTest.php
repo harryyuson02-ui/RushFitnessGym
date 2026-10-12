@@ -19,22 +19,22 @@ class PortalShortcutTest extends TestCase
         $this->seed();
     }
 
-    public function test_login_as_mika_preserves_mika_across_coach_pages(): void
+    public function test_login_as_jay_preserves_jay_across_coach_pages(): void
     {
-        $mika = User::where('email', 'coach2@rushfitness.test')->firstOrFail();
+        $jay = User::where('email', 'coachjay@gmail.com')->firstOrFail();
 
         $this->post('/login', [
-            'email' => 'coach2@rushfitness.test',
+            'email' => 'coachjay@gmail.com',
             'password' => 'password',
         ])->assertRedirect(route('coach.dashboard'));
 
         $this->get(route('coach.dashboard'))
             ->assertOk()
-            ->assertSee('Welcome, Mika Santos')
-            ->assertDontSee('Alex Rivera');
+            ->assertSee('Welcome, Jay Verdadero')
+            ->assertDontSee('Elmer Permacio');
         $this->get(route('coach.clients.index'))->assertOk();
 
-        $this->assertAuthenticatedAs($mika);
+        $this->assertAuthenticatedAs($jay);
     }
 
     #[DataProvider('portalProvider')]
@@ -53,8 +53,8 @@ class PortalShortcutTest extends TestCase
     {
         return [
             'admin' => ['/admin', 'admin@rushfitness.test', 'admin.dashboard'],
-            'coach' => ['/coach', 'coach1@rushfitness.test', 'coach.dashboard'],
-            'member' => ['/member', 'member1@rushfitness.test', 'member.dashboard'],
+            'coach' => ['/coach', 'coachelmer@gmail.com', 'coach.dashboard'],
+            'member' => ['/member', 'shawnharry@gmail.com', 'member.dashboard'],
         ];
     }
 
@@ -89,7 +89,7 @@ class PortalShortcutTest extends TestCase
 
     public function test_member_plan_cards_use_the_same_images_as_the_admin_catalog(): void
     {
-        $member = User::where('email', 'member1@rushfitness.test')->firstOrFail();
+        $member = User::where('email', 'shawnharry@gmail.com')->firstOrFail();
 
         $this->actingAs($member)->get(route('member.plans.index'))
             ->assertOk()
@@ -100,14 +100,15 @@ class PortalShortcutTest extends TestCase
 
     public function test_seeded_coach_dashboard_and_client_directory_use_the_same_active_clients(): void
     {
-        $mika = User::where('email', 'coach2@rushfitness.test')->firstOrFail();
+        $jay = User::where('email', 'coachjay@gmail.com')->firstOrFail();
 
-        $this->actingAs($mika)->get(route('coach.dashboard'))
+        $this->actingAs($jay)->get(route('coach.dashboard'))
             ->assertOk()
-            ->assertSeeText('1');
+            ->assertSeeText('2');
 
-        $this->actingAs($mika)->get(route('coach.clients.index'))
+        $this->actingAs($jay)->get(route('coach.clients.index'))
             ->assertOk()
-            ->assertSeeText('Bianca Reyes');
+            ->assertSeeText('Qian Jedmarr Forro')
+            ->assertSeeText('Jose Joenard Loja');
     }
 }

@@ -22,6 +22,7 @@ class ApplicationController extends Controller
         $validated = $request->validated();
         $plan = MembershipPlan::findOrFail($validated['membership_plan_id']);
         $requestedCoach = isset($validated['coach_id']) ? Coach::findOrFail($validated['coach_id']) : null;
+        $amount = (float) $plan->price;
         $receiptPath = $request->file('receipt')?->store('receipts', config('filesystems.default'));
 
         if ($request->hasFile('receipt') && ! is_string($receiptPath)) {
@@ -29,7 +30,7 @@ class ApplicationController extends Controller
         }
         $phone = $validated['phone_country_code'].' '.$validated['phone'];
 
-        $subscription = DB::transaction(function () use ($request, $validated, $plan, $requestedCoach, $receiptPath, $phone): Subscription {
+        $subscription = DB::transaction(function () use ($request, $validated, $plan, $requestedCoach, $receiptPath, $phone, $amount): Subscription {
             [$firstName, $lastName] = [$validated['first_name'], $validated['last_name']];
             $profile = [
                 'first_name' => $firstName,
@@ -65,15 +66,24 @@ class ApplicationController extends Controller
                 'paid_at' => now(),
                 'qr_issued_at' => now(),
             ]);
-            $member->transactions()->create([
+            $transaction = $member->transactions()->create([
                 'subscription_id' => $subscription->id,
                 'membership_plan_id' => $plan->id,
-                'amount' => $plan->price,
+                'amount' => $amount,
                 'payment_method' => $validated['payment_method'],
                 'reference' => $validated['reference'] ?? null,
                 'receipt_path' => $receiptPath,
                 'status' => 'pending',
             ]);
+            if ($validated['payment_method'] === 'gcash') {
+                $transaction->gcashPayment()->create([
+                    'reference' => $validated['reference'],
+                    'receipt_path' => $receiptPath,
+                    'verification_status' => 'pending',
+                ]);
+            } else {
+                $transaction->cashPayment()->create();
+            }
             $request->user()->update([
                 'name' => $firstName.' '.$lastName,
                 'phone' => $phone,

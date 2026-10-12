@@ -1,6 +1,6 @@
 @php
     $initialStep = $errors->hasAny(['fitness_goal']) ? 0
-        : ($errors->hasAny(['first_name', 'last_name', 'gender', 'phone_country_code', 'phone', 'address']) ? 1
+        : ($errors->hasAny(['first_name', 'last_name', 'gender', 'phone_country_code', 'phone', 'province', 'municipality', 'barangay', 'address']) ? 1
         : ($errors->hasAny(['availability_days', 'availability_starts_at', 'availability_ends_at']) ? 2
         : ($errors->any() ? 3 : 0)));
 @endphp
@@ -45,7 +45,7 @@
                     <span id="member-phone-error" class="text-xs font-normal text-red-600" aria-live="polite" hidden></span>
                     <x-input-error :messages="$errors->get('phone')" />
                 </label>
-                <label class="rush-label">Address<select class="rush-input" name="address" required><option value="">Select city or municipality</option>@foreach(['Tagum City','Davao City','Panabo City','Samal City','Maco','Mabini','Pantukan'] as $option)<option @selected(old('address') === $option)>{{ $option }}</option>@endforeach</select></label>
+                <x-location-selects />
             </div>
         </section>
 
@@ -56,14 +56,14 @@
             <div class="mt-6 grid gap-4 sm:grid-cols-2"><label class="rush-label">Available from<input class="rush-input" type="time" name="availability_starts_at" value="{{ old('availability_starts_at') }}" required></label><label class="rush-label">Available until<input class="rush-input" type="time" name="availability_ends_at" value="{{ old('availability_ends_at') }}" required></label></div>
         </section>
 
-        <section data-step-panel="3" hidden>
+        <section data-step-panel="3" data-membership-pricing hidden>
             <div><p class="text-[0.65rem] font-bold uppercase tracking-[0.18em] text-lime-700">Subscription catalog</p><h3 class="mt-2 text-xl font-bold">Select a membership plan</h3><p class="mt-1 text-sm text-zinc-500">Simple plans. Clear pricing. Plan management is available only to administrators.</p></div>
             <div class="mt-5 grid gap-5 lg:grid-cols-3">
                 @forelse($plans as $plan)
                     @php($planImage = match (true) { $plan->duration_days >= 365 => 'annual.jpg', $plan->duration_days >= 90 => 'quarterly.jpg', default => 'monthly.jpg' })
                     <label class="group cursor-pointer overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md has-[:checked]:border-lime-500 has-[:checked]:ring-2 has-[:checked]:ring-lime-400">
                         <img src="{{ asset('images/plans/'.$planImage) }}" alt="" class="h-36 w-full object-cover">
-                        <span class="block p-5"><span class="flex items-start gap-3"><input class="mt-1 size-4 accent-lime-500" type="radio" name="membership_plan_id" value="{{ $plan->id }}" @checked((string) old('membership_plan_id') === (string) $plan->id) required><span class="min-w-0 flex-1"><span class="flex justify-between gap-3"><strong>{{ $plan->name }}</strong><strong>₱{{ number_format($plan->price, 2) }}</strong></span><span class="mt-2 block text-sm text-zinc-500">{{ $plan->duration_days }} days</span><span class="mt-2 block text-sm leading-5 text-zinc-600">{{ $plan->description }}</span></span></span></span>
+                        <span class="block p-5"><span class="flex items-start gap-3"><input class="mt-1 size-4 accent-lime-500" type="radio" name="membership_plan_id" value="{{ $plan->id }}" data-plan-price="{{ $plan->price }}" @checked((string) old('membership_plan_id') === (string) $plan->id) required><span class="min-w-0 flex-1"><span class="flex justify-between gap-3"><strong>{{ $plan->name }}</strong><strong>₱{{ number_format($plan->price, 2) }}</strong></span><span class="mt-2 block text-sm text-zinc-500">{{ $plan->duration_days }} days</span><span class="mt-2 block text-sm leading-5 text-zinc-600">{{ $plan->description }}</span></span></span></span>
                     </label>
                 @empty
                     <p class="rounded-xl bg-amber-50 p-4 text-sm text-amber-900 lg:col-span-3">No active subscription plans are available yet.</p>
@@ -71,19 +71,24 @@
             </div>
 
             <h3 class="mt-8 text-xl font-bold">Choose your coaching preference</h3>
-            <p class="mt-1 text-sm text-zinc-500">Select a coach for guided training or choose independent gym access.</p>
+            <p class="mt-1 text-sm text-zinc-500">Select a coach for guided training or choose independent gym access. Coaching fees are negotiated directly with your chosen coach and are not included in the gym membership payment.</p>
             <div class="mt-4 grid gap-3 sm:grid-cols-2">
                 <label class="rush-choice-card sm:col-span-2"><input type="radio" name="coach_id" value="" @checked(old('coach_id', '') === '') required><span><strong class="block">No coach — gym access only</strong><span class="text-sm text-lime-800">Independent training</span><span class="mt-1 block text-xs text-zinc-500">Use the gym and lift weights without coaching support.</span></span></label>
                 @forelse($coaches as $coach)
-                    <label class="rush-choice-card"><input type="radio" name="coach_id" value="{{ $coach->id }}" @checked((string) old('coach_id') === (string) $coach->id) required><span><strong class="block">{{ $coach->name }}</strong><span class="text-sm text-lime-800">{{ $coach->specialty }}</span><span class="mt-1 block text-xs text-zinc-500">{{ $coach->schedule }}</span></span></label>
+                    <label class="rush-choice-card"><input type="radio" name="coach_id" value="{{ $coach->id }}" data-coach-option @checked((string) old('coach_id') === (string) $coach->id) required><span><strong class="block">{{ $coach->name }}</strong><span class="text-sm text-lime-800">{{ $coach->specialty }}</span><span class="mt-1 block text-xs text-zinc-500">{{ $coach->schedule }} · Coaching terms arranged separately</span></span></label>
                 @empty
                     <p class="text-sm text-amber-800 sm:col-span-2">No coaches are accepting clients right now. Independent gym access is still available.</p>
                 @endforelse
             </div>
 
+            <div class="mt-6 rounded-xl border border-lime-200 bg-lime-50 p-5" data-membership-total>
+                <div class="flex items-center justify-between gap-4"><span class="font-semibold text-lime-950">Amount to pay</span><strong class="text-2xl text-lime-950" data-membership-total-amount>Choose a plan</strong></div>
+                <p class="mt-1 text-xs text-lime-800" data-membership-total-breakdown>The total updates when you select a plan and coaching preference.</p>
+            </div>
+
             <fieldset class="mt-8"><legend class="text-xl font-bold">Payment method</legend><div class="mt-3 flex flex-wrap gap-3"><label class="rush-choice"><input type="radio" name="payment_method" value="gcash" @checked(old('payment_method', 'gcash') === 'gcash')> GCash</label><label class="rush-choice"><input type="radio" name="payment_method" value="cash" @checked(old('payment_method') === 'cash')> Cash</label></div></fieldset>
-            <div class="mt-5 grid gap-4 sm:grid-cols-2" data-gcash-fields><label class="rush-label">GCash reference<input class="rush-input" name="reference" value="{{ old('reference') }}"></label><label class="rush-label">Upload receipt<input class="rush-input py-3" type="file" name="receipt" accept=".jpg,.jpeg,.png,.pdf"></label></div>
-            <div class="mt-6 rounded-xl bg-lime-50 p-5 text-sm leading-6 text-lime-950"><p class="font-bold">Application review</p><p class="mt-1">Applications with a coach are reviewed by that coach. Gym-only applications are reviewed by an administrator. You will be notified when a decision is made.</p></div>
+            <div class="mt-5 grid gap-4 sm:grid-cols-2" data-gcash-fields><label class="rush-label">GCash reference number<input class="rush-input" name="reference" value="{{ old('reference') }}" inputmode="numeric" minlength="13" maxlength="13" pattern="[0-9]{13}" placeholder="13-digit reference" title="Enter exactly 13 digits"></label><label class="rush-label">Upload GCash receipt<input class="rush-input py-3" type="file" name="receipt" accept=".jpg,.jpeg,.png,.pdf"></label><p class="text-sm leading-6 text-zinc-500 sm:col-span-2">Enter the exact 13-digit reference shown in GCash. An administrator will compare it with the receipt and total amount before approval.</p></div>
+            <div class="mt-6 rounded-xl bg-lime-50 p-5 text-sm leading-6 text-lime-950"><p class="font-bold">Application review</p><p class="mt-1">The administrator verifies your payment and membership first. If you selected a coach, the coach receives a separate training request after membership approval.</p></div>
         </section>
 
         <div class="mt-7 flex justify-between gap-3"><button type="button" class="rush-secondary" data-step-previous hidden>Back</button><span></span><button type="button" class="rush-primary" data-step-next>Continue</button><button type="submit" class="rush-primary" data-step-submit hidden>Submit application</button></div>

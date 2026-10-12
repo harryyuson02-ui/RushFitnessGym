@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\Auth\PasswordResetChallengeController;
 use App\Models\Member;
 use App\Models\User;
 use App\Notifications\PasswordResetCode;
@@ -13,6 +14,41 @@ use Tests\TestCase;
 class PasswordResetChallengeControllerTest extends TestCase
 {
     use LazilyRefreshDatabase;
+
+    public function test_verification_page_uses_six_numeric_code_boxes(): void
+    {
+        Notification::fake([PasswordResetCode::class]);
+
+        $this->post(route('password.send-code'), ['email' => 'missing@example.test']);
+
+        $response = $this->get(route('password.code'));
+
+        $response->assertOk()
+            ->assertSee('data-verification-code', false)
+            ->assertSee('data-code-digit', false)
+            ->assertSee('name="code_digits[]"', false)
+            ->assertSee('inputmode="numeric"', false);
+
+        $this->assertSame(6, substr_count($response->getContent(), 'data-code-digit'));
+    }
+
+    public function test_new_password_page_has_visibility_controls_for_both_fields(): void
+    {
+        $user = User::factory()->member()->create();
+
+        $response = $this->withSession([
+            PasswordResetChallengeController::VERIFIED_USER_KEY => $user->id,
+            PasswordResetChallengeController::VERIFIED_AT_KEY => now()->timestamp,
+        ])->get(route('password.reset'));
+
+        $response->assertOk()
+            ->assertSee('id="reset-password"', false)
+            ->assertSee('id="reset-password-confirmation"', false)
+            ->assertSee('aria-controls="reset-password"', false)
+            ->assertSee('aria-controls="reset-password-confirmation"', false);
+
+        $this->assertSame(2, substr_count($response->getContent(), 'data-password-toggle'));
+    }
 
     public function test_login_page_links_to_member_password_recovery(): void
     {

@@ -190,6 +190,7 @@ class ApprovalWorkflowTest extends TestCase
         $pendingAccessToken = $subscription->access_token;
         $transaction = Transaction::factory()->for($member)->for($subscription)->create([
             'membership_plan_id' => $subscription->membership_plan_id,
+            'payment_method' => 'cash',
             'status' => 'pending',
             'paid_at' => null,
         ]);
@@ -224,6 +225,58 @@ class ApprovalWorkflowTest extends TestCase
             ApprovalDecision::class,
             fn (ApprovalDecision $notification): bool => $notification->routeName === 'member.dashboard',
         );
+    }
+
+    public function test_admin_cannot_approve_membership_before_gcash_payment_is_verified(): void
+    {
+        $admin = User::factory()->create();
+        $member = Member::factory()->create();
+        $subscription = Subscription::factory()->for($member)->create(['status' => 'pending']);
+        $transaction = Transaction::factory()->for($member)->for($subscription)->create([
+            'payment_method' => 'gcash',
+            'reference' => 'GCASH-PENDING-100',
+            'receipt_path' => 'receipts/pending-payment.pdf',
+            'status' => 'pending',
+            'paid_at' => null,
+        ]);
+
+        $this->actingAs($admin)->patch(route('admin.approvals.members.update', $subscription), [
+            'decision' => 'approved',
+        ])->assertStatus(409);
+
+        $this->assertSame('pending', $subscription->fresh()->status);
+        $this->assertSame('pending', $transaction->fresh()->status);
+    }
+
+    public function test_verified_gcash_payment_can_be_approved_and_receive_a_qr(): void
+    {
+        $admin = User::factory()->create();
+        $memberUser = User::factory()->member()->create();
+        $member = Member::factory()->for($memberUser)->create();
+        $subscription = Subscription::factory()->for($member)->create(['status' => 'pending']);
+        $transaction = Transaction::factory()->for($member)->for($subscription)->create([
+            'payment_method' => 'gcash',
+            'reference' => 'GCASH-VERIFIED-QR',
+            'receipt_path' => 'receipts/verified-qr.pdf',
+            'status' => 'pending',
+            'paid_at' => null,
+        ]);
+
+        $this->actingAs($admin)->patch(route('admin.transactions.verification.update', $transaction), [
+            'decision' => 'verified',
+        ])->assertRedirect(route('admin.transactions.index'));
+
+        $this->actingAs($admin)->patch(route('admin.approvals.members.update', $subscription), [
+            'decision' => 'approved',
+        ])->assertRedirect(route('admin.approvals.index'));
+
+        $subscription->refresh();
+        $this->assertSame('paid', $transaction->fresh()->status);
+        $this->assertSame('active', $subscription->status);
+        $this->assertNotNull($subscription->qr_issued_at);
+        $this->actingAs($memberUser)
+            ->get(route('access-key.image', $subscription->access_token))
+            ->assertOk();
     }
 
     public function test_approved_member_can_view_and_download_their_personalized_branded_qr(): void
@@ -443,6 +496,33 @@ class ApprovalWorkflowTest extends TestCase
             'status' => 'pending',
         ]);
         Notification::assertSentTo($coachUser, ApprovalRequested::class);
+    }
+
+    public function test_approved_member_who_selected_no_coach_can_choose_one_later(): void
+    {
+        $admin = User::factory()->create();
+        $memberUser = User::factory()->member()->create();
+        $member = Member::factory()->for($memberUser)->create(['coach_id' => null]);
+        $subscription = Subscription::factory()->for($member)->create([
+            'requested_coach_id' => null,
+            'status' => 'pending',
+        ]);
+        Transaction::factory()->for($member)->for($subscription)->create([
+            'payment_method' => 'cash',
+            'status' => 'pending',
+        ]);
+        $coach = Coach::factory()->for(User::factory()->coach())->create(['is_available' => true]);
+
+        $this->actingAs($admin)->patch(route('admin.approvals.members.update', $subscription), [
+            'decision' => 'approved',
+        ])->assertRedirect();
+
+        $this->actingAs($memberUser)->get(route('member.dashboard'))
+            ->assertOk()
+            ->assertSeeText('Choose a coach')
+            ->assertSeeText($coach->name)
+            ->assertSee('data-coach-selection="inside-coach-card"', false)
+            ->assertSee(route('member.coach-request.store'), false);
     }
 
     public function test_inactive_member_cannot_request_a_coach(): void

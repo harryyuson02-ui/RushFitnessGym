@@ -12,11 +12,18 @@ class CoachSeeder extends Seeder
      */
     public function run(): void
     {
+        Coach::whereIn('name', [
+            'Alex Rivera',
+            'Mika Santos',
+            'Jordan Cruz',
+            'Taylor Reyes',
+            'Coach Elmer Permacio',
+            'Coach Jay Verdadero',
+        ])->delete();
+
         collect([
-            ['name' => 'Alex Rivera', 'email' => 'coach1@rushfitness.test', 'phone' => '09171234567', 'specialty' => 'Strength & Conditioning', 'schedule' => 'Mon-Wed-Fri · 7 AM-4 PM'],
-            ['name' => 'Mika Santos', 'email' => 'coach2@rushfitness.test', 'phone' => '09181234567', 'specialty' => 'Weight Loss & Mobility', 'schedule' => 'Tue-Thu-Sat · 9 AM-6 PM'],
-            ['name' => 'Jordan Cruz', 'email' => 'coach3@rushfitness.test', 'phone' => '09191234567', 'specialty' => 'Boxing & Functional Fitness', 'schedule' => 'Mon-Sat · 1 PM-9 PM'],
-            ['name' => 'Taylor Reyes', 'email' => 'coach4@rushfitness.test', 'phone' => '09161234567', 'specialty' => 'Bodybuilding', 'schedule' => 'Mon-Fri · 10 AM-7 PM'],
-        ])->each(fn (array $coach) => Coach::updateOrCreate(['name' => $coach['name']], [...$coach, 'is_available' => true]));
+            ['name' => 'Elmer Permacio', 'email' => 'coachelmer@gmail.com', 'phone' => '09171234567', 'specialty' => 'Gym Coach', 'schedule' => 'Mon-Wed-Fri · 7 AM-4 PM'],
+            ['name' => 'Jay Verdadero', 'email' => 'coachjay@gmail.com', 'phone' => '09181234567', 'specialty' => 'Martial Arts Coach', 'schedule' => 'Tue-Thu-Sat · 9 AM-6 PM'],
+        ])->each(fn (array $coach) => Coach::updateOrCreate(['email' => $coach['email']], [...$coach, 'is_available' => true]));
     }
 }

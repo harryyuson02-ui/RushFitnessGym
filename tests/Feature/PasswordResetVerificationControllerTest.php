@@ -28,7 +28,7 @@ class PasswordResetVerificationControllerTest extends TestCase
 
         $response = $this->withSession([
             PasswordResetChallengeController::SESSION_KEY => $challengeId,
-        ])->post(route('password.verify-code'), ['code' => '123456']);
+        ])->post(route('password.verify-code'), ['code_digits' => ['1', '2', '3', '4', '5', '6']]);
 
         $response->assertRedirect(route('password.reset'))
             ->assertSessionHas(PasswordResetChallengeController::VERIFIED_USER_KEY, $user->id)

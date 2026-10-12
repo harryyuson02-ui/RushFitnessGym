@@ -23,15 +23,17 @@ class DatabaseSeederTest extends TestCase
         $this->seed();
 
         $this->assertSame(1, User::where('role', 'admin')->count());
-        $this->assertSame(4, User::where('role', 'coach')->count());
-        $this->assertSame(5, User::where('role', 'user')->count());
-        $this->assertSame(4, Coach::whereNotNull('user_id')->count());
-        $this->assertSame(5, Member::whereNotNull('user_id')->count());
-        $this->assertSame(5, Subscription::active()->count());
-        $this->assertSame(5, Transaction::where('status', 'paid')->count());
-        $this->assertSame(5, ScheduleEvent::where('type', 'session')->count());
-        $this->assertSame(5, CoachClientRecord::count());
-        $this->assertSame(5, CoachAssignmentRequest::where('status', 'accepted')->count());
+        $this->assertSame(2, User::where('role', 'coach')->count());
+        $this->assertSame(3, User::where('role', 'user')->count());
+        $this->assertSame(2, Coach::whereNotNull('user_id')->count());
+        $this->assertSame(3, Member::whereNotNull('user_id')->count());
+        $this->assertSame(3, Subscription::active()->count());
+        $this->assertSame(3, Transaction::where('status', 'paid')->count());
+        $this->assertSame(3, ScheduleEvent::where('type', 'session')->count());
+        $this->assertSame(3, CoachClientRecord::count());
+        $this->assertSame(3, CoachAssignmentRequest::where('status', 'accepted')->count());
+        $this->assertDatabaseHas('coaches', ['name' => 'Elmer Permacio', 'specialty' => 'Gym Coach']);
+        $this->assertDatabaseHas('coaches', ['name' => 'Jay Verdadero', 'specialty' => 'Martial Arts Coach']);
 
         Member::query()->with(['currentSubscription.plan'])->each(function (Member $member): void {
             $this->assertNotNull($member->currentSubscription);
@@ -49,13 +51,13 @@ class DatabaseSeederTest extends TestCase
         $this->seed();
         $this->seed();
 
-        $this->assertSame(10, User::count());
-        $this->assertSame(4, Coach::count());
-        $this->assertSame(5, Member::count());
-        $this->assertSame(5, Subscription::count());
-        $this->assertSame(5, Transaction::count());
-        $this->assertSame(5, ScheduleEvent::count());
-        $this->assertSame(5, CoachClientRecord::count());
-        $this->assertSame(5, CoachAssignmentRequest::count());
+        $this->assertSame(6, User::count());
+        $this->assertSame(2, Coach::count());
+        $this->assertSame(3, Member::count());
+        $this->assertSame(3, Subscription::count());
+        $this->assertSame(3, Transaction::count());
+        $this->assertSame(3, ScheduleEvent::count());
+        $this->assertSame(3, CoachClientRecord::count());
+        $this->assertSame(3, CoachAssignmentRequest::count());
     }
 }

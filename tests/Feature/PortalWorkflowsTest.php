@@ -113,7 +113,13 @@ class PortalWorkflowsTest extends TestCase
 
         $this->actingAs($user)->get(route('member.dashboard'))
             ->assertOk()
-            ->assertDontSee('Preferred message channel');
+            ->assertSee('name="province"', false)
+            ->assertSee('name="municipality"', false)
+            ->assertSee('name="barangay"', false)
+            ->assertSee('data-ph-location', false)
+            ->assertDontSee('Preferred message channel')
+            ->assertDontSee('coach add-on', false)
+            ->assertDontSee('+₱500.00');
 
         $response = $this->actingAs($user)->post(route('member.application.store'), [
             'fitness_goal' => 'Improve strength',
@@ -122,14 +128,16 @@ class PortalWorkflowsTest extends TestCase
             'gender' => 'Female',
             'phone_country_code' => '+63',
             'phone' => '09171234567',
-            'address' => 'Tagum City',
+            'province' => 'Davao del Norte',
+            'municipality' => 'City of Tagum',
+            'barangay' => 'Apokon',
             'availability_days' => ['Monday', 'Wednesday', 'Friday'],
             'availability_starts_at' => '17:00',
             'availability_ends_at' => '19:00',
             'coach_id' => $coach->id,
             'membership_plan_id' => $plan->id,
             'payment_method' => 'gcash',
-            'reference' => 'GCASH-12345',
+            'reference' => '1234567890123',
             'receipt' => UploadedFile::fake()->create('receipt.pdf', 100, 'application/pdf'),
         ]);
 
@@ -144,9 +152,16 @@ class PortalWorkflowsTest extends TestCase
         $this->assertSame('Improve strength', $member->fitness_goal);
         $this->assertSame(['Monday', 'Wednesday', 'Friday'], $member->availability_days);
         $this->assertSame('+63 09171234567', $member->phone);
+        $this->assertSame('Apokon, City of Tagum, Davao del Norte', $member->address);
         $this->assertSame('private_message', $member->preferred_channel);
         $this->assertNull($member->birth_date);
-        $this->assertSame('GCASH-12345', $transaction->reference);
+        $this->assertSame('1234567890123', $transaction->reference);
+        $this->assertDatabaseHas('gcash_payments', [
+            'transaction_id' => $transaction->id,
+            'reference' => '1234567890123',
+            'verification_status' => 'pending',
+        ]);
+        $this->assertSame('1200.00', $transaction->amount);
         Storage::disk('local')->assertExists($transaction->receipt_path);
         Notification::assertNotSentTo($coachUser, ApprovalRequested::class);
         Notification::assertSentTo($admin, ApprovalRequested::class, fn (ApprovalRequested $notification): bool => $notification->routeName === 'admin.approvals.index');
@@ -154,11 +169,51 @@ class PortalWorkflowsTest extends TestCase
         $this->actingAs($admin)->get(route('admin.approvals.index'))
             ->assertOk()
             ->assertSeeText('View payment receipt')
+            ->assertSeeText('Total: ₱1,200.00')
+            ->assertDontSeeText('add-on')
             ->assertSee(route('admin.transactions.receipt', $transaction), false);
         $this->get(route('admin.transactions.receipt', $transaction))
             ->assertOk()
             ->assertHeader('X-Content-Type-Options', 'nosniff');
         $this->actingAs($user)->get(route('admin.transactions.receipt', $transaction))->assertForbidden();
+    }
+
+    #[DataProvider('invalidGcashReferences')]
+    public function test_member_gcash_reference_must_be_exactly_thirteen_digits(string $reference): void
+    {
+        Storage::fake('local');
+        $user = User::factory()->member()->create();
+        $plan = MembershipPlan::factory()->create();
+
+        $this->actingAs($user)->from(route('member.dashboard'))->post(route('member.application.store'), [
+            'fitness_goal' => 'Improve strength',
+            'first_name' => 'Ana',
+            'last_name' => 'Reyes',
+            'gender' => 'Female',
+            'phone_country_code' => '+63',
+            'phone' => '09171234567',
+            'address' => 'Tagum City',
+            'availability_days' => ['Monday'],
+            'availability_starts_at' => '17:00',
+            'availability_ends_at' => '19:00',
+            'membership_plan_id' => $plan->id,
+            'payment_method' => 'gcash',
+            'reference' => $reference,
+            'receipt' => UploadedFile::fake()->create('receipt.pdf', 100, 'application/pdf'),
+        ])->assertRedirect(route('member.dashboard'))->assertSessionHasErrors('reference');
+
+        $this->assertDatabaseCount('transactions', 0);
+        $this->assertDatabaseCount('gcash_payments', 0);
+    }
+
+    /** @return array<string, array{string}> */
+    public static function invalidGcashReferences(): array
+    {
+        return [
+            'twelve digits' => ['123456789012'],
+            'fourteen digits' => ['12345678901234'],
+            'letters and symbols' => ['GCASH-1234567'],
+        ];
     }
 
     public function test_member_can_submit_a_gym_only_application_without_a_coach(): void
@@ -186,8 +241,13 @@ class PortalWorkflowsTest extends TestCase
 
         $response->assertRedirect(route('member.dashboard'))->assertSessionHasNoErrors();
         $member = Member::whereBelongsTo($user)->firstOrFail();
+        $transaction = Transaction::whereBelongsTo($member)->firstOrFail();
         $this->assertNull($member->coach_id);
         $this->assertSame('pending', $member->currentSubscription->status);
+        $this->assertDatabaseHas('cash_payments', [
+            'transaction_id' => $transaction->id,
+            'received_at' => null,
+        ]);
         Notification::assertSentTo(
             $admin,
             ApprovalRequested::class,
@@ -720,13 +780,13 @@ class PortalWorkflowsTest extends TestCase
     {
         $this->seed();
 
-        $this->assertDatabaseCount('users', 10);
+        $this->assertDatabaseCount('users', 6);
         $this->assertDatabaseHas('users', ['email' => 'admin@rushfitness.test', 'role' => 'admin']);
-        $this->assertDatabaseHas('users', ['email' => 'coach1@rushfitness.test', 'role' => 'coach']);
-        $this->assertDatabaseHas('users', ['email' => 'member1@rushfitness.test', 'role' => 'user']);
+        $this->assertDatabaseHas('users', ['email' => 'coachelmer@gmail.com', 'role' => 'coach']);
+        $this->assertDatabaseHas('users', ['email' => 'shawnharry@gmail.com', 'role' => 'user']);
         $this->assertSame(
-            User::where('email', 'coach1@rushfitness.test')->value('id'),
-            Coach::where('name', 'Alex Rivera')->value('user_id'),
+            User::where('email', 'coachelmer@gmail.com')->value('id'),
+            Coach::where('name', 'Elmer Permacio')->value('user_id'),
         );
     }
 
@@ -734,12 +794,18 @@ class PortalWorkflowsTest extends TestCase
     {
         $user = User::factory()->member()->create();
         $ownMember = Member::factory()->for($user)->create();
-        $ownTransaction = Transaction::factory()->for($ownMember)->create(['reference' => 'OWN-REFERENCE']);
-        $otherTransaction = Transaction::factory()->create(['reference' => 'PRIVATE-OTHER-REFERENCE']);
+        $ownTransaction = Transaction::factory()->for($ownMember)->create([
+            'payment_method' => 'gcash',
+            'reference' => '1234567890123',
+        ]);
+        $otherTransaction = Transaction::factory()->create([
+            'payment_method' => 'gcash',
+            'reference' => '9876543210987',
+        ]);
 
         $this->actingAs($user)->get(route('member.transactions.index'))
-            ->assertSee($ownTransaction->reference)
-            ->assertDontSee($otherTransaction->reference);
+            ->assertSee($ownTransaction->gcashPayment->reference)
+            ->assertDontSee($otherTransaction->gcashPayment->reference);
     }
 
     public function test_system_users_are_searchable_below_members_without_account_creation_controls(): void

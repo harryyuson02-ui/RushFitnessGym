@@ -30,7 +30,10 @@ class ApprovalController extends Controller
                 'member:id,user_id,coach_id,member_code,first_name,last_name,fitness_goal',
                 'plan:id,name,price',
                 'requestedCoach:id,name',
-                'transactions:id,subscription_id,payment_method,reference,receipt_path,status',
+                'transactions:id,subscription_id,amount,payment_method,reference,receipt_path,status',
+                'transactions.gcashPayment:id,transaction_id,reference,receipt_path,verification_status,verified_by,verified_at,verification_notes',
+                'transactions.gcashPayment.verifier:id,name',
+                'transactions.cashPayment:id,transaction_id,received_by,received_at',
             ])
             ->where('status', 'pending')
             ->latest()

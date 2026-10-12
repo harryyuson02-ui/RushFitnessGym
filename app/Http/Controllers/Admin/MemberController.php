@@ -129,13 +129,16 @@ class MemberController extends Controller
             ]);
 
             $plan = MembershipPlan::findOrFail($validated['membership_plan_id']);
-            $member->transactions()->create([
+            $transaction = $member->transactions()->create([
                 'subscription_id' => $subscription->id,
                 'membership_plan_id' => $plan->id,
                 'amount' => $plan->price,
                 'payment_method' => 'cash',
                 'status' => 'paid',
                 'paid_at' => now(),
+            ]);
+            $transaction->cashPayment()->create([
+                'received_at' => now(),
             ]);
 
             return $member;

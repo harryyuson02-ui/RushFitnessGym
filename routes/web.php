@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\AttendanceCheckInController;
 use App\Http\Controllers\Admin\CoachAvailabilityApprovalController;
 use App\Http\Controllers\Admin\CoachController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\GcashPaymentVerificationController;
 use App\Http\Controllers\Admin\GymAccessApprovalController;
 use App\Http\Controllers\Admin\MemberController;
 use App\Http\Controllers\Admin\MembershipPlanController;
@@ -99,6 +100,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::get('/transactions/{transaction}/receipt', [AdminTransactionController::class, 'receipt'])
         ->middleware('throttle:60,1')
         ->name('transactions.receipt');
+    Route::patch('/transactions/{transaction}/verification', GcashPaymentVerificationController::class)
+        ->name('transactions.verification.update');
     Route::get('/approvals', [ApprovalController::class, 'index'])->name('approvals.index');
     Route::patch('/approvals/members/{subscription}', GymAccessApprovalController::class)->name('approvals.members.update');
     Route::patch('/approvals/availability/{availabilityChange}', CoachAvailabilityApprovalController::class)->name('approvals.availability.update');

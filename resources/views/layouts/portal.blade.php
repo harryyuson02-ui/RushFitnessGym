@@ -22,7 +22,7 @@
             ['Members', 'admin.members.index', ['admin.members.*', 'admin.users.*']], ['Coaches', 'admin.coaches.index', 'admin.coaches.*'],
             ['Plans', 'admin.plans.index', 'admin.plans.*'],
             ['Approval reviews', 'admin.approvals.index', 'admin.approvals.*'],
-            ['Transactions', 'admin.transactions.index', 'admin.transactions.*'],
+            ['GCash verification', 'admin.transactions.index', 'admin.transactions.*'],
             ['Chat', 'chat.index', 'chat.*'],
         ],
         'coach' => [
